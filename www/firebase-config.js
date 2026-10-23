@@ -12,5 +12,5 @@ window.RR_FIREBASE_CONFIG = {
   projectId: "PASTE_YOUR_PROJECT_ID",
   storageBucket: "",
   messagingSenderId: "",
-  appId: "PASTE_YOUR_APP_ID"
+  appId: "1:989093377266:web:2897358873662598bfcc6b"
 };
