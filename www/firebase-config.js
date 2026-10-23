@@ -7,9 +7,9 @@
  * These values identify your project; they are not secret passwords.
  */
 window.RR_FIREBASE_CONFIG = {
-  apiKey: "PASTE_YOUR_API_KEY",
-  authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
-  projectId: "PASTE_YOUR_PROJECT_ID",
+  apiKey: "AIzaSyCWXqo-tdIUqzUla8EfxnvgJN13sdLQPVA",
+  authDomain: "rack-and-run-game.firebaseapp.com",
+  projectId: "rack-and-run-game",
   storageBucket: "",
   messagingSenderId: "",
   appId: "1:989093377266:web:2897358873662598bfcc6b"
