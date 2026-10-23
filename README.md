@@ -59,7 +59,8 @@ Things to know:
 - **Identity:** each device is its own player, so come back to a game on the same phone or computer you joined from.
 - **Visibility:** anyone with your copy of the app can see the list of open tables.
 - **Hidden tiles:** each person sees only their own tiles, but the game data isn't encrypted, so someone determined could read other racks through developer tools.
-- **Cleanup:** finished tables stay in Firestore. You can delete old documents in `games` from the Firebase console now and then.
+- **Leaving:** use Players > Leave table, or the Leave button next to a table in the list. Your seat goes to a bot so the others can carry on, and when the last person leaves, the table is deleted.
+- **Cleanup:** whenever someone opens the table list, tables nobody can return to are removed automatically: everyone has left, or a waiting room has sat idle for 12 hours, or a game hasn't been touched in 14 days.
 
 ## Play in a browser (iPhone, iPad, PC)
 
