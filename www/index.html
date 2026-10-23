@@ -134,6 +134,10 @@ button{font:inherit;color:inherit}
 .jc0{color:var(--t0)} .jc3{color:var(--t3)}
 .joker svg{width:70%;height:auto;display:block}
 .tile.fresh::before{content:'';position:absolute;top:3px;left:24%;right:24%;height:3px;border-radius:2px;background:var(--accent)}
+.tile.pending{box-shadow:0 0 0 2.5px var(--pc,var(--gold)), 0 calc(var(--tw)*.06) 0 var(--tile-edge)}
+.tile.pending::before{content:'';position:absolute;top:3px;left:24%;right:24%;height:3px;border-radius:2px;background:var(--pc,var(--gold))}
+.controls.nohint #bHint{display:none}
+.controls.nohint #bUndo{grid-column:span 2}
 .tile.recent{box-shadow:0 0 0 2.5px var(--gold), 0 calc(var(--tw)*.06) 0 var(--tile-edge), 0 0 16px rgba(242,193,78,.6)}
 .tile.hint{animation:hintPulse 1.3s ease-in-out infinite}
 @keyframes hintPulse{0%,100%{box-shadow:0 0 0 2px var(--accent),0 calc(var(--tw)*.06) 0 var(--tile-edge)}50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 55%,transparent),0 calc(var(--tw)*.06) 0 var(--tile-edge)}}
@@ -331,6 +335,14 @@ dialog::backdrop{background:var(--scrim)}
           <input type="radio" name="timerL" id="tl120" value="120"><label for="tl120">2 min</label>
         </div>
       </div>
+      <div class="field">
+        <span class="flabel" id="lHintsL">Hints</span>
+        <div class="seg" role="radiogroup" aria-labelledby="lHintsL">
+          <input type="radio" name="hintsL" id="hl1" value="on" checked><label for="hl1">On</label>
+          <input type="radio" name="hintsL" id="hl0" value="off"><label for="hl0">Off</label>
+        </div>
+        <p class="fhelp">Off hides the Hint button for everyone in this game.</p>
+      </div>
       <p class="notice warn" id="localWarn" hidden></p>
       <div class="actions">
         <button type="button" class="btn" data-open="rules">How to play</button>
@@ -361,6 +373,14 @@ dialog::backdrop{background:var(--scrim)}
             <input type="radio" name="timerO" id="to120" value="120" checked><label for="to120">2 min</label>
           </div>
           <p class="fhelp">With a timer, anyone at the table can skip a player who has wandered off.</p>
+        </div>
+        <div class="field">
+          <span class="flabel" id="lHintsO">Hints</span>
+          <div class="seg" role="radiogroup" aria-labelledby="lHintsO">
+            <input type="radio" name="hintsO" id="ho1" value="on" checked><label for="ho1">On</label>
+            <input type="radio" name="hintsO" id="ho0" value="off"><label for="ho0">Off</label>
+          </div>
+          <p class="fhelp">Off hides the Hint button for everyone at the table.</p>
         </div>
         <div class="actions">
           <button type="button" class="btn" data-open="rules">How to play</button>
@@ -419,7 +439,8 @@ dialog::backdrop{background:var(--scrim)}
         <li>Gold rings show what others played since your last turn, and the tile you last drew.</li>
         <li>777 sorts your rack into groups and 789 into runs. You can drag tiles within your rack to arrange them.</li>
         <li>Undo puts everything back as it was at the start of your turn.</li>
-        <li>Hint makes playable tiles glow. Press it again to lay the play out for you.</li>
+        <li>Hint makes playable tiles glow. Press it again to lay the play out for you. Hints can be turned off when setting up a game.</li>
+        <li>Playing online, you watch the current player’s table live as they rearrange it. Tiles they’re placing get a bar in their color until they press Done.</li>
         <li>With the turn timer on, running out of time draws a tile for you. If your move was unfinished, the table is restored and you draw three tiles.</li>
       </ul>
     </div>
@@ -724,6 +745,7 @@ let G=null;          /* the game: shared online, saved on the device otherwise *
 const L={mode:null,gameId:null,turnKey:null,start:null,work:null,revealed:null,prompt:null,hintPlan:null,orders:{},shown:null,timedOut:null,autoSeat:false};
 let sel=new Set(), drag=null, hintIds=null, tickInt=null, botTimer=null, ghost=null, overEl=null;
 const cap={ready:false,db:null,user:null,room:null,uid:null,canWrite:null};
+let live=null, unsubLive=null, liveTimer=null, liveWriting=false, liveDirty=false;
 let gameRef=null, tableDoc=null, unsubGame=null, unsubList=null, gameRoom=null, unsubPeers=null, tablesCache=[];
 let onlineUids=new Set(), busyUids=new Set(), lastBusy=null, prefs=null, setupTab='local', leaveArmed=false;
 
@@ -767,7 +789,7 @@ function newGameState(seats,settings,prev){
   const players=seats.map((s,i)=>({name:s.name,kind:s.kind,skill:s.skill||null,uid:s.uid||null,rack:sortIds(deck.splice(0,14),'runs'),melded:false,score:prev?prev.players[i].score:0,wins:prev?prev.players[i].wins:0}));
   const d=drawForFirst(players.length);
   return {players:players,pool:deck,table:[],current:d.first,passes:0,over:false,history:prev?prev.history:[],
-    log:[{t:0,k:'first',s:d.first,draws:d.draws,tie:d.tie}],drawn:null,gameNo:(prev?prev.gameNo:0)+1,turnId:1,turnStartedAt:Date.now(),settings:{timer:(settings&&settings.timer)|0}};
+    log:[{t:0,k:'first',s:d.first,draws:d.draws,tie:d.tie}],drawn:null,gameNo:(prev?prev.gameNo:0)+1,turnId:1,turnStartedAt:Date.now(),settings:{timer:(settings&&settings.timer)|0,hints:!(settings&&settings.hints===false)}};
 }
 function logPush(g,e){ e.t=g.turnId; g.log.push(e); if(g.log.length>14) g.log.shift(); }
 function advance(g){ g.current=(g.current+1)%g.players.length; g.turnId++; g.turnStartedAt=Date.now(); }
@@ -847,6 +869,7 @@ function syncTurn(){
       L.turnKey=key; sel.clear(); hintIds=null; L.hintPlan=null; L.prompt=null;
       L.start={table:clone(G.table),rack:G.players[vs].rack.slice()};
       L.work=loadDraft(key)||clone(L.start);
+      if(hasChanges()) pushLive();
     }
   } else if(L.work){ L.work=null; L.start=null; sel.clear(); hintIds=null; L.hintPlan=null; }
 }
@@ -909,7 +932,7 @@ function doDraw(x){
   const vs=viewSeat(), ng=clone(G);
   endMyTurn(); applyDraw(ng,vs,x||null); pushState(ng);
 }
-function doUndo(){ if(!myTurn()) return; L.work=clone(L.start); sel.clear(); L.prompt=null; saveDraft(); render(); }
+function doUndo(){ if(!myTurn()) return; L.work=clone(L.start); sel.clear(); L.prompt=null; saveDraft(); render(); pushLive(); }
 function onTimeout(){
   if(!myTurn()) return;
   cancelDrag();
@@ -918,10 +941,10 @@ function onTimeout(){
   const vs=viewSeat(), ng=clone(G); endMyTurn(); applyPenalty(ng,vs); pushState(ng);
 }
 function doHint(){
-  if(!myTurn()) return;
+  if(!myTurn()||!hintsAllowed()) return;
   if(hintIds&&L.hintPlan){
     L.work={table:clone(L.hintPlan.table),rack:L.hintPlan.rack.slice()};
-    hintIds=null; L.hintPlan=null; sel.clear(); saveDraft();
+    hintIds=null; L.hintPlan=null; sel.clear(); saveDraft(); pushLive();
     say('Laid out. Press Done to play it, or adjust it first.'); return;
   }
   const vs=viewSeat(), p=G.players[vs], st=L.start, key=L.turnKey;
@@ -1013,7 +1036,7 @@ function moveTiles(ids,t){
   } else { detach(ids); w.table.push(ids.slice()); }
   w.table=w.table.filter(s=>s.length);
   sel.clear(); L.prompt=null; saveDraft();
-  render(); updatePresence();
+  render(); updatePresence(); pushLive();
   ids.forEach(id=>{ const n=document.querySelector('#table .tile[data-id="'+id+'"]'); if(n) n.classList.add('pop'); });
 }
 function sortIds(r,mode){
@@ -1081,10 +1104,11 @@ function renderPlayers(){
     av.style.setProperty('--av',AV[i%4]); av.setAttribute('aria-hidden','true');
     if(L.mode==='online'&&p.kind==='human'&&p.uid&&onlineUids.has(p.uid)) av.appendChild(mk('span','dot'));
     const who=mk('span','who'); who.appendChild(mk('span','nm',p.name+(i===vs&&L.mode==='online'?' (you)':'')));
-    const cnt=(i===vs&&myTurn())?L.work.rack.length:p.rack.length;
+    const lv=turn?liveTurn():null;
+    const cnt=(i===vs&&myTurn())?L.work.rack.length:(lv&&typeof lv.rackCount==='number'?lv.rackCount:p.rack.length);
     let sub=(p.kind==='bot'?'Bot, ':'')+plural(cnt,'tile');
     if(turn&&p.kind==='bot') sub='thinking…';
-    else if(turn&&p.kind==='human'&&i!==vs&&p.uid&&busyUids.has(p.uid)) sub='arranging tiles…';
+    else if(turn&&p.kind==='human'&&i!==vs&&((p.uid&&busyUids.has(p.uid))||liveEditing())) sub='arranging tiles…';
     else if(!p.melded&&!G.over) sub+=', not opened';
     who.appendChild(mk('span','sub',sub));
     ch.appendChild(av); ch.appendChild(who);
@@ -1095,14 +1119,21 @@ function renderPlayers(){
 }
 function renderTable(){
   const tb=$('#table'); tb.textContent='';
-  const table=myTurn()?L.work.table:(G?G.table:[]);
+  const lv=myTurn()?null:liveTurn();
+  const table=myTurn()?L.work.table:(lv?lv.table:(G?G.table:[]));
   const fr=fresh(), rec=recentIds(), mine=myTurn(), melded=mine&&G.players[viewSeat()].melded;
+  const onTable=lv?new Set([].concat.apply([],G.table)):null, pc=AV[(G?G.current:0)%4];
   table.forEach((set,i)=>{
     const a=analyze(set);
     const s=mk('div','set'+(a.valid?'':' bad')); s.dataset.drop='set:'+i;
     s.setAttribute('role','group');
     s.setAttribute('aria-label',(a.valid?(a.type==='run'?'Run':'Group'):'Unfinished set')+': '+a.order.map(tLabel).join(', '));
-    a.order.forEach(id=>s.appendChild(liveTile(id,flagsFor(id,fr,rec))));
+    a.order.forEach(id=>{
+      const f=flagsFor(id,fr,rec);
+      if(onTable&&!onTable.has(id)) f.push('pending');
+      const t=liveTile(id,f); if(onTable&&!onTable.has(id)) t.style.setProperty('--pc',pc);
+      s.appendChild(t);
+    });
     if(mine&&sel.size&&!set.every(id=>sel.has(id))&&(melded||set.every(id=>fr.has(id)))){
       const b=mk('button','slot','+'); b.type='button'; b.dataset.act='add'; b.dataset.set=i; b.setAttribute('aria-label','Add selected tiles to this set');
       s.appendChild(b);
@@ -1130,9 +1161,11 @@ function renderRack(){
     const b=mk('button','slot wide','Back to rack'); b.type='button'; b.dataset.act='back'; r.appendChild(b);
   }
 }
+const hintsAllowed=()=>!G||!G.settings||G.settings.hints!==false;
 function renderControls(){
   const mine=myTurn(), vs=viewSeat();
-  $('#bHint').disabled=!mine; $('#bUndo').disabled=!hasChanges(); $('#bDraw').disabled=!mine; $('#bDone').disabled=!mine;
+  $('.controls').classList.toggle('nohint',!hintsAllowed());
+  $('#bHint').disabled=!mine||!hintsAllowed(); $('#bUndo').disabled=!hasChanges(); $('#bDraw').disabled=!mine; $('#bDone').disabled=!mine;
   $('#bDraw span').textContent=G&&!G.pool.length?'Pass':'Draw tile';
   $('#bSortG').disabled=$('#bSortR').disabled=!G||G.over||vs===null;
 }
@@ -1162,7 +1195,7 @@ function renderStatus(){
   else if(!myTurn()){
     const cp=G.players[G.current];
     if(cp.kind==='bot') txt=cp.name+' is thinking…';
-    else if(L.mode==='online') txt='Waiting for '+cp.name+(cp.uid&&busyUids.has(cp.uid)?', who is arranging tiles…':'…');
+    else if(L.mode==='online') txt=liveEditing()?cp.name+' is arranging tiles. You’re seeing the table live.':'Waiting for '+cp.name+(cp.uid&&busyUids.has(cp.uid)?', who is arranging tiles…':'…');
     else txt=cp.name+'’s turn.';
   }
   else if(L.prompt){ txt=L.prompt.text; err=L.prompt.err; }
@@ -1225,7 +1258,7 @@ function showScores(){
 
 /* ---------- setup: seats ---------- */
 function defaultPrefs(){
-  return {name:'',tab:'local',timerL:0,timerO:120,
+  return {name:'',tab:'local',timerL:0,timerO:120,hintsL:'on',hintsO:'on',
     local:[{type:'human',name:'You'},{type:'bot',skill:'normal'},{type:'bot',skill:'normal'},{type:'empty'}],
     online:[{type:'human'},{type:'person'},{type:'person'},{type:'empty'}]};
 }
@@ -1275,7 +1308,7 @@ function openSetup(msg){
   const n=$('#setupNotice'); n.hidden=!msg; if(msg) n.textContent=msg;
   document.querySelectorAll('[data-resume]').forEach(b=>{ b.hidden=!(G||(L.mode==='online'&&tableDoc)); });
   const set=(name,val)=>{ const x=document.querySelector('input[name="'+name+'"][value="'+val+'"]'); if(x) x.checked=true; };
-  set('timerL',prefs.timerL); set('timerO',prefs.timerO);
+  set('timerL',prefs.timerL); set('timerO',prefs.timerO); set('hintsL',prefs.hintsL||'on'); set('hintsO',prefs.hintsO||'on');
   $('#myName').value=prefs.name||'';
   renderSeats('local'); renderSeats('online');
   const lw=$('#localWarn');
@@ -1296,11 +1329,36 @@ function startLocal(){
   if(!seats.some(s=>s.kind==='human')){ $('#setupNotice').hidden=false; $('#setupNotice').textContent='Make at least one seat a Player.'; return; }
   leaveOnline(true);
   L.mode='local'; L.gameId=null; L.revealed=null; L.orders={}; L.turnKey=null; L.shown=null; store.del(KEY_DRAFT); saveUI();
-  G=newGameState(seats,{timer:prefs.timerL},null);
+  G=newGameState(seats,{timer:prefs.timerL,hints:prefs.hintsL!=='off'},null);
   $('#dlgSetup').close(); closeDlg('#dlgResults');
   saveLocal(); afterChange();
 }
 function closeDlg(sel){ const d=$(sel); if(d&&d.open) d.close(); }
+
+/* ---------- live view: the player whose turn it is shares the table as they arrange it ---------- */
+/* Only tiles placed on the table are shared; racks stay private. Stored beside the table as games/<id>-live. */
+function liveTurn(){
+  if(L.mode!=='online'||!G||G.over||!live) return null;
+  if(live.key!==G.gameNo+':'+G.turnId||live.seat!==G.current||G.current===viewSeat()) return null;
+  if(!Array.isArray(live.table)||Date.now()-(live.at||0)>15*60e3) return null;
+  return live;
+}
+function liveEditing(){ const lv=liveTurn(); return !!lv&&JSON.stringify(lv.table)!==JSON.stringify(G.table); }
+function pushLive(){
+  if(L.mode!=='online'||!cap.db||!L.gameId||!myTurn()) return;
+  liveDirty=true;
+  if(!liveTimer) liveTimer=setTimeout(flushLive,150);
+}
+async function flushLive(){
+  liveTimer=null;
+  if(liveWriting){ liveTimer=setTimeout(flushLive,150); return; }
+  if(!liveDirty||!myTurn()||!L.gameId) return;
+  liveDirty=false; liveWriting=true;
+  const gid=L.gameId;
+  try{ await cap.db.doc('games/'+gid+'-live').set({key:G.gameNo+':'+G.turnId,seat:viewSeat(),table:L.work.table,rackCount:L.work.rack.length,at:Date.now()}); }catch(e){}
+  liveWriting=false;
+  if(liveDirty&&!liveTimer) liveTimer=setTimeout(flushLive,150);
+}
 
 /* ---------- online ---------- */
 let capsPromise=null;
@@ -1402,7 +1460,7 @@ async function createTable(){
   });
   if(!others){ const n=$('#setupNotice'); n.hidden=false; n.textContent='Add at least one Person or Bot seat.'; return; }
   const id=rid(), now=Date.now();
-  const doc={status:'lobby',title:name+'’s table',host:cap.uid,createdAt:now,updatedAt:now,settings:{timer:prefs.timerO},seats:seats,v:0,G:null};
+  const doc={status:'lobby',title:name+'’s table',host:cap.uid,createdAt:now,updatedAt:now,settings:{timer:prefs.timerO,hints:prefs.hintsO!=='off'},seats:seats,v:0,G:null};
   $('#bCreate').disabled=true;
   try{ await cap.db.doc('games/'+id).set(doc); }
   catch(e){ $('#bCreate').disabled=false; const n=$('#setupNotice'); n.hidden=false; n.textContent=e&&e.code==='quota_exceeded'?'The shared game storage is full. Old tables need clearing before a new one can start.':'Couldn’t create the table. Check your internet connection and try again.'; return; }
@@ -1418,6 +1476,11 @@ function openOnline(id,autoSeat){
   closeDlg('#dlgSetup'); closeDlg('#dlgResults');
   gameRef=cap.db.doc('games/'+id);
   unsubGame=gameRef.onSnapshot(onGameSnap,e=>{ unsubGame=null; if(L.gameId===id) openSetup('Lost the connection to the online table. Open it again from the list.'); });
+  live=null;
+  unsubLive=cap.db.doc('games/'+id+'-live').onSnapshot(snap=>{
+    live=snap.exists?snap.data():null;
+    if(G&&!myTurn()&&!(drag&&drag.started)){ renderTable(); renderPlayers(); renderStatus(); }
+  },()=>{ unsubLive=null; });
   joinRoom(id);
   render();
 }
@@ -1456,6 +1519,8 @@ function updatePresence(force){
 }
 function leaveOnline(silent){
   if(unsubGame){ unsubGame(); unsubGame=null; }
+  if(unsubLive){ unsubLive(); unsubLive=null; }
+  live=null; if(liveTimer){ clearTimeout(liveTimer); liveTimer=null; } liveDirty=false;
   if(unsubPeers){ unsubPeers(); unsubPeers=null; }
   if(gameRoom){ gameRoom.leave().catch(()=>{}); gameRoom=null; }
   onlineUids=new Set(); busyUids=new Set();
@@ -1521,6 +1586,8 @@ function renderLobby(){
   const host=d.host===cap.uid, st=$('#bLobStart');
   st.hidden=!host; st.disabled=filled<2; st.textContent=open&&filled>=2?'Start with '+filled+' players':'Start game';
   $('#lobNote').textContent=host?(filled<2?'Waiting for someone to join.':(open?'Waiting for '+plural(open,'more player')+'. You can also start now; empty seats are dropped.':'Everyone’s here. Start when ready.')):(mine?'Waiting for the host to start the game.':'Pick an open seat to join.');
+  const st2=d.settings||{};
+  $('#lobNote').textContent+=' Turn timer: '+(st2.timer?(st2.timer/60)+' min':'off')+'. Hints: '+(st2.hints===false?'off':'on')+'.';
   const dl=$('#dlgLobby'); if(!dl.open) dl.showModal();
 }
 async function startOnline(){
@@ -1647,6 +1714,8 @@ $('#bNext').addEventListener('click',()=>{ $('#dlgResults').close(); nextGame();
 $('#bResNew').addEventListener('click',()=>{ $('#dlgResults').close(); openSetup(); });
 document.querySelectorAll('input[name="timerL"]').forEach(n=>n.addEventListener('change',()=>{ prefs.timerL=+n.value; savePrefs(); }));
 document.querySelectorAll('input[name="timerO"]').forEach(n=>n.addEventListener('change',()=>{ prefs.timerO=+n.value; savePrefs(); }));
+document.querySelectorAll('input[name="hintsL"]').forEach(n=>n.addEventListener('change',()=>{ prefs.hintsL=n.value; savePrefs(); }));
+document.querySelectorAll('input[name="hintsO"]').forEach(n=>n.addEventListener('change',()=>{ prefs.hintsO=n.value; savePrefs(); }));
 $('#dlgSetup').addEventListener('cancel',e=>{ if(!G&&!(L.mode==='online'&&tableDoc)) e.preventDefault(); });
 $('#dlgSetup').addEventListener('close',()=>unwatchTables());
 $('#dlgLobby').addEventListener('cancel',e=>e.preventDefault());

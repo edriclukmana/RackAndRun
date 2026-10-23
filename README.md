@@ -9,8 +9,8 @@ A tile rummy game played by the classic Rummikub rules, for 2 to 4 players in an
 - The full rules: 106 tiles, runs and groups, a 30-point opening, rearranging the table, jokers, and official scoring with a joker costing 30.
 - Bots at three levels. Easy plays sets from its own rack, Normal also rearranges part of the table, and Hard finds the play that lays down the most tiles.
 - One device: pass a phone or tablet around. Each player's tiles stay hidden until they tap to reveal them.
-- Separate devices: each person plays on their own phone, tablet or computer, and moves appear on every screen as they happen. This needs a free Firebase project; see [Turn on online play](#turn-on-online-play).
-- Hints, a turn timer, rack sorting, drag and drop or tap to select, scores across games, and light and dark themes.
+- Separate devices: each person plays on their own phone, tablet or computer. Everyone watches the current player's table live as they rearrange it, while racks stay private. This needs a free Firebase project; see [Turn on online play](#turn-on-online-play).
+- Hints (which can be switched off when setting up a game), a turn timer, rack sorting, drag and drop or tap to select, scores across games, and light and dark themes.
 - No network needed for one-device games. The fonts and everything else ship inside the app.
 
 ## Put it on GitHub
@@ -38,7 +38,7 @@ Every push to `main` builds the app automatically.
 
 For a permanent download link, publish a release: push a tag such as `git tag v1.0.0 && git push origin v1.0.0`. The APK is then attached to that release on the **Releases** page, ready to share with the other players.
 
-New versions install over old ones and keep saved games and scores, because every build is signed with the same key from `keystore/`.
+To update, just install the new APK over the old one; there's no need to uninstall, and saved games and scores stay. Every build is signed with the project's key from `keystore/` (the build stops with an error if it ever isn't) and gets a higher version number than the one before. You can see which version a phone has under Settings > Apps > Rack & Run, for example `1.0.0.12`, where the last number is the build number on GitHub.
 
 ## Turn on online play
 
@@ -84,7 +84,7 @@ npm test          # simulated games check every move against the rules, plus onl
 To build the APK on your own computer instead of GitHub, install [Android Studio](https://developer.android.com/studio), then:
 
 ```
-npm run android:add      # once: creates the android/ folder
+npm run android:add      # once: creates the android/ folder, signed with the project key
 npm run android:assets   # app icon and splash screens from assets/
 npm run android:sync     # after every change in www/
 npm run android:open     # opens Android Studio; press Run, or Build > Build APK
@@ -100,11 +100,12 @@ npm run android:open     # opens Android Studio; press Run, or Build > Build APK
 | `www/vendor/firebase.js` | Bundled Firebase SDK (`npm run build:vendor` rebuilds it) |
 | `assets/` | Source images for the app icon and splash screens |
 | `keystore/debug.keystore` | Signing key, so updates install over old versions |
+| `tools/configure-android.mjs` | Applies that key and a new version number to each Android build |
 | `test/` | Rule simulation and adapter tests |
 | `.github/workflows/` | Builds the APK and publishes the website |
 
 ## Notes
 
-- **Signing:** `keystore/debug.keystore` is a development key (password `android`). It's fine for sharing the app with family. Anyone with this repository could sign an app that updates yours, so before publishing on Google Play, create a private release key and keep it out of the repository.
+- **Signing:** `keystore/debug.keystore` is a development key (password `android`). It's fine for sharing the app with family. Keep this file: an APK signed with any other key can't install over the app already on your phones. Anyone with this repository could sign an app that updates yours, so before publishing on Google Play, create a private release key and keep it out of the repository.
 - **The name:** Rummikub is a registered trademark of M&M Ventures (2014) Ltd. Rack & Run is an independent project that follows the published rules and isn't affiliated with or endorsed by them. Check the trademark question before distributing it publicly, for example on Google Play.
 - **Licenses:** the code is MIT-licensed (see `LICENSE`). The fonts, Alfa Slab One and Bricolage Grotesque, are under the SIL Open Font License; their license files are in `www/fonts/`.

@@ -11,7 +11,8 @@
     "test": "node test/simulate.mjs && node test/backend.test.mjs",
     "serve": "npx --yes http-server www -p 8080 -c-1",
     "build:vendor": "esbuild tools/firebase-entry.js --bundle --format=esm --minify --legal-comments=eof --outfile=www/vendor/firebase.js",
-    "android:add": "cap add android",
+    "android:add": "cap add android && node tools/configure-android.mjs",
+    "android:configure": "node tools/configure-android.mjs",
     "android:assets": "capacitor-assets generate --android --iconBackgroundColor '#5C3E28' --iconBackgroundColorDark '#3D2718' --splashBackgroundColor '#5C3E28' --splashBackgroundColorDark '#3D2718'",
     "android:sync": "cap sync android",
     "android:open": "cap open android"
