@@ -1,0 +1,29 @@
+{
+  "name": "rack-and-run",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Rack & Run: a tile rummy game played by the classic Rummikub rules, for 2 to 4 players in any mix of people and bots.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node test/simulate.mjs && node test/backend.test.mjs",
+    "serve": "npx --yes http-server www -p 8080 -c-1",
+    "build:vendor": "esbuild tools/firebase-entry.js --bundle --format=esm --minify --legal-comments=eof --outfile=www/vendor/firebase.js",
+    "android:add": "cap add android",
+    "android:assets": "capacitor-assets generate --android --iconBackgroundColor '#5C3E28' --iconBackgroundColorDark '#3D2718' --splashBackgroundColor '#5C3E28' --splashBackgroundColorDark '#3D2718'",
+    "android:sync": "cap sync android",
+    "android:open": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.3",
+    "esbuild": "^0.28.2",
+    "firebase": "^13.1.0"
+  }
+}

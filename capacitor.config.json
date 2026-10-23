@@ -1,0 +1,9 @@
+{
+  "appId": "com.rackandrun.game",
+  "appName": "Rack & Run",
+  "webDir": "www",
+  "backgroundColor": "#3D2718",
+  "android": {
+    "backgroundColor": "#3D2718"
+  }
+}

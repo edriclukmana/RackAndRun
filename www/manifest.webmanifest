@@ -1,0 +1,16 @@
+{
+  "name": "Rack & Run",
+  "short_name": "Rack & Run",
+  "description": "A tile rummy game played by the classic Rummikub rules, for 2 to 4 players in any mix of people and bots.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#3D2718",
+  "theme_color": "#13181B",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,1681 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rack &amp; Run, a tile rummy game</title>
+<meta name="description" content="A tile rummy game played by the classic Rummikub rules, for 2 to 4 players in any mix of people and bots.">
+<meta name="theme-color" content="#13181B">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preload" href="fonts/AlfaSlabOne.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face{font-family:'Alfa Slab One';src:url(fonts/AlfaSlabOne.woff2) format('woff2');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'Bricolage Grotesque';src:url(fonts/BricolageGrotesque.woff2) format('woff2');font-weight:200 800;font-stretch:75% 100%;font-style:normal;font-display:swap}
+:root{
+  color-scheme: light;
+  --slab: 'Alfa Slab One', Rockwell, 'Roboto Slab', Georgia, serif;
+  --ui: 'Bricolage Grotesque', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --chrome:#E3E8EA; --chrome-2:#D2D9DC; --ink:#1A2125; --ink-soft:#55626A; --line:rgba(26,33,37,.15);
+  --panel:#F5F7F7; --panel-2:#E7ECED; --err-ink:#B3311D; --ok:#1E9E5A;
+  --wood-1:#986845; --wood-2:#774C2F; --grain:rgba(52,26,10,.14); --seam:rgba(40,18,6,.28);
+  --tile:#F6EFDE; --tile-hi:#FFFBF2; --tile-lo:#E1D3B5; --tile-edge:#B29D74;
+  --t0:#C42B22; --t1:#1C58A4; --t2:#B05A05; --t3:#1A1917;
+  --accent:#12A391; --accent-ink:#032A25; --gold:#F2C14E; --bad:#FF7461;
+  --set-bg:rgba(30,14,4,.26); --scrim:rgba(14,12,10,.58);
+  --tw: clamp(27px, min(5.2vw, 5.3vh), 46px);
+  --th: calc(var(--tw) * 1.34);
+  box-sizing: border-box;
+  /* Android (Capacitor) injects --safe-area-inset-*; browsers and iOS use env(). */
+  padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  padding-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  padding-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --chrome:#13181B; --chrome-2:#1E2529; --ink:#ECE8E0; --ink-soft:#9BA6AD; --line:rgba(236,232,224,.13);
+    --panel:#1A2125; --panel-2:#242C31; --err-ink:#FF9483; --ok:#4CD38A;
+    --wood-1:#5C3E28; --wood-2:#3D2718; --grain:rgba(0,0,0,.2); --seam:rgba(0,0,0,.34);
+    --tile:#EFE6D2; --tile-hi:#F8F2E4; --tile-lo:#D6C6A4; --tile-edge:#9F8A61;
+    --set-bg:rgba(0,0,0,.28); --scrim:rgba(0,0,0,.68);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --chrome:#13181B; --chrome-2:#1E2529; --ink:#ECE8E0; --ink-soft:#9BA6AD; --line:rgba(236,232,224,.13);
+  --panel:#1A2125; --panel-2:#242C31; --err-ink:#FF9483; --ok:#4CD38A;
+  --wood-1:#5C3E28; --wood-2:#3D2718; --grain:rgba(0,0,0,.2); --seam:rgba(0,0,0,.34);
+  --tile:#EFE6D2; --tile-hi:#F8F2E4; --tile-lo:#D6C6A4; --tile-edge:#9F8A61;
+  --set-bg:rgba(0,0,0,.28); --scrim:rgba(0,0,0,.68);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{height:100%;scroll-padding-top:var(--safe-area-inset-top, env(safe-area-inset-top,0px));background:var(--chrome)}
+body{height:100%;margin:0;background:var(--chrome);color:var(--ink);font-family:var(--ui);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;overflow:hidden}
+button{font:inherit;color:inherit}
+.app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto;user-select:none;-webkit-user-select:none}
+
+/* header */
+.top{display:flex;align-items:center;gap:14px;padding:9px 16px;border-bottom:1px solid var(--line);min-width:0;background:var(--chrome)}
+.brand{font-family:var(--slab);font-size:21px;line-height:1;white-space:nowrap;letter-spacing:.01em}
+.players{display:flex;gap:8px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none;padding:3px}
+.players::-webkit-scrollbar{display:none}
+.chip{flex:none;display:flex;align-items:center;gap:9px;padding:4px 14px 4px 4px;border-radius:999px;background:var(--chrome-2);box-shadow:0 0 0 2px transparent;transition:box-shadow .2s}
+.chip.turn{box-shadow:0 0 0 2px var(--accent)}
+.av{position:relative;flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--av);color:#fff;font-weight:800;font-size:14px}
+.av.bot{border-radius:9px}
+.av .dot{position:absolute;right:-2px;bottom:-2px;width:11px;height:11px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 2px var(--chrome-2)}
+.chip .who{display:flex;flex-direction:column;line-height:1.15}
+.chip .nm{font-weight:700;font-size:14px;white-space:nowrap}
+.chip .sub{font-size:12px;color:var(--ink-soft);white-space:nowrap}
+.tools{display:flex;gap:6px;align-items:center}
+.pool{display:flex;align-items:center;gap:7px;padding:6px 10px;border-radius:8px;background:var(--chrome-2);font-weight:700;font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap}
+.pool .stk{width:13px;height:17px;border-radius:3px;background:var(--wood-2);box-shadow:2px -2px 0 var(--wood-1),4px -4px 0 var(--wood-2)}
+.mode-tag{font-size:12px;font-weight:700;padding:5px 9px;border-radius:999px;background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--ink);white-space:nowrap}
+.iconbtn{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:transparent;cursor:pointer;font-weight:600;font-size:14px;min-height:34px}
+.iconbtn svg{width:17px;height:17px;flex:none}
+.iconbtn:hover{background:var(--chrome-2)}
+@media (max-width:1100px){
+  .top{flex-wrap:wrap;row-gap:6px}
+  .brand{flex:1}
+  .players{order:3;flex-basis:100%}
+}
+@media (max-width:760px){
+  .top{padding:8px 12px}
+  .brand{font-size:18px}
+  .iconbtn .lbl,.pool .lbl{display:none}
+  .iconbtn{padding:7px 9px}
+}
+
+/* board */
+.board-wrap{position:relative;min-height:0}
+.board{position:absolute;inset:0;overflow:auto;overscroll-behavior:contain;
+  background-color:var(--wood-2);
+  background-image:
+    repeating-linear-gradient(179.4deg, transparent 0 11px, var(--grain) 11px 12px, transparent 12px 23px),
+    repeating-linear-gradient(180.8deg, transparent 0 37px, var(--grain) 37px 39px, transparent 39px 61px),
+    repeating-linear-gradient(180deg, transparent 0 158px, var(--seam) 158px 160px),
+    linear-gradient(180deg, var(--wood-1), var(--wood-2));
+  background-attachment:local;
+  box-shadow:inset 0 14px 22px -14px rgba(0,0,0,.5)}
+.board.over-board{box-shadow:inset 0 0 0 3px var(--accent), inset 0 14px 22px -14px rgba(0,0,0,.5)}
+.table{display:flex;flex-wrap:wrap;align-content:flex-start;align-items:flex-start;gap:14px 16px;padding:18px 18px 84px;min-height:100%}
+.set{display:flex;align-items:flex-end;gap:3px;padding:6px;border-radius:10px;background:var(--set-bg);box-shadow:inset 0 1px 3px rgba(0,0,0,.28);transition:background-color .15s}
+.set.bad{outline:2px dashed var(--bad);outline-offset:2px}
+.set.shake{animation:shake .4s}
+.set.over{background:color-mix(in srgb, var(--accent) 38%, transparent)}
+@keyframes shake{20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
+.slot{flex:none;width:calc(var(--tw)*.8);height:var(--th);border-radius:calc(var(--tw)*.15);border:2px dashed rgba(255,246,230,.6);background:rgba(255,255,255,.07);color:#FFF6E6;font-weight:700;font-size:calc(var(--tw)*.52);line-height:1;display:grid;place-items:center;cursor:pointer;padding:0}
+.slot:hover{background:rgba(255,255,255,.16)}
+.slot.wide{width:auto;padding:0 14px;font-size:14px;border-color:rgba(255,255,255,.35);color:#E9E9EC}
+.empty{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;padding:24px}
+.empty p{max-width:32ch;text-align:center;color:rgba(255,244,228,.8);font-size:16px;margin:0}
+.fab{position:absolute;right:16px;bottom:16px;z-index:5;display:inline-flex;align-items:center;gap:8px;padding:12px 18px;border-radius:999px;border:none;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 8px 20px rgba(0,0,0,.35)}
+.fab.over{outline:3px solid #fff;outline-offset:2px}
+.fab svg{width:18px;height:18px}
+
+/* tiles */
+.tile{width:var(--tw);height:var(--th);flex:none;position:relative;border-radius:calc(var(--tw)*.15);
+  background:linear-gradient(180deg,var(--tile-hi) 0%,var(--tile) 45%,var(--tile-lo) 100%);
+  box-shadow:0 calc(var(--tw)*.06) 0 var(--tile-edge), 0 calc(var(--tw)*.1) calc(var(--tw)*.14) rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.9);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--tw)*.06);
+  font-family:var(--slab);font-size:calc(var(--tw)*.56);line-height:1;
+  cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;
+  transition:transform .12s ease, box-shadow .12s ease, opacity .12s}
+.tile .nm{display:block;letter-spacing:-.05em;transform:translateY(calc(var(--tw)*.04))}
+.tile .mk{display:block;width:calc(var(--tw)*.16);height:calc(var(--tw)*.16);background:currentColor;opacity:.9}
+.c0{color:var(--t0)} .c0 .mk{border-radius:50%}
+.c1{color:var(--t1)} .c1 .mk{border-radius:1px}
+.c2{color:var(--t2)} .c2 .mk{clip-path:polygon(50% 0,100% 100%,0 100%)}
+.c3{color:var(--t3)} .c3 .mk{transform:rotate(45deg) scale(.8)}
+.jc0{color:var(--t0)} .jc3{color:var(--t3)}
+.joker svg{width:70%;height:auto;display:block}
+.tile.fresh::before{content:'';position:absolute;top:3px;left:24%;right:24%;height:3px;border-radius:2px;background:var(--accent)}
+.tile.recent{box-shadow:0 0 0 2.5px var(--gold), 0 calc(var(--tw)*.06) 0 var(--tile-edge), 0 0 16px rgba(242,193,78,.6)}
+.tile.hint{animation:hintPulse 1.3s ease-in-out infinite}
+@keyframes hintPulse{0%,100%{box-shadow:0 0 0 2px var(--accent),0 calc(var(--tw)*.06) 0 var(--tile-edge)}50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 55%,transparent),0 calc(var(--tw)*.06) 0 var(--tile-edge)}}
+.tile.sel{transform:translateY(calc(var(--tw)*-.2));box-shadow:0 0 0 3px var(--accent), 0 calc(var(--tw)*.28) calc(var(--tw)*.26) rgba(0,0,0,.4);animation:none}
+.tile.lifted{opacity:.28}
+.tile:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.tile.pop{animation:pop .35s ease-out}
+@keyframes pop{from{transform:scale(.8)}to{transform:none}}
+.ghost{position:fixed;left:0;top:0;z-index:60;display:flex;gap:3px;pointer-events:none;filter:drop-shadow(0 10px 12px rgba(0,0,0,.4))}
+.ghost .tile{transform:rotate(-3deg)}
+body.dragging,body.dragging *{cursor:grabbing!important}
+
+/* dock */
+.dock{border-top:1px solid var(--line);padding:8px 14px 12px;display:grid;gap:8px;background:var(--chrome)}
+.status{display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;min-height:24px}
+.msgs{flex:1;min-width:0}
+.feed{color:var(--ink-soft);font-size:13.5px;margin:0}
+.prompt{font-weight:650;margin:0}
+.prompt.err{color:var(--err-ink)}
+.meld{display:flex;align-items:center;gap:8px;font-size:13.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.meld .bar{width:96px;height:7px;background:var(--chrome-2);border-radius:4px;overflow:hidden}
+.meld .bar i{display:block;height:100%;width:0;background:var(--ink-soft);transition:width .25s}
+.meld.ok .bar i{background:var(--accent)}
+.skip{padding:7px 12px;min-height:34px}
+.timer{height:4px;background:var(--chrome-2);border-radius:2px;overflow:hidden}
+.timer i{display:block;height:100%;background:var(--accent);transition:width .2s linear}
+.timer.low i{background:var(--bad)}
+.dock-main{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:stretch}
+.rack{position:relative;border-radius:12px;padding:8px 10px 12px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:6px 4px;
+  min-height:calc(var(--th)*2 + 26px);
+  background-color:#29292E;
+  background-image:repeating-linear-gradient(180deg, transparent 0, transparent var(--th), #151518 var(--th), #151518 calc(var(--th) + 4px), transparent calc(var(--th) + 4px), transparent calc(var(--th) + 6px)), linear-gradient(180deg,#38383E,#25252A);
+  background-origin:content-box, border-box;background-clip:content-box, border-box;background-repeat:no-repeat;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.07), inset 0 -4px 0 rgba(0,0,0,.4)}
+.rack.over{box-shadow:inset 0 0 0 3px var(--accent), inset 0 -4px 0 rgba(0,0,0,.4)}
+.rack.veiled{background-image:linear-gradient(180deg,#38383E,#25252A);background-origin:border-box;background-clip:border-box;align-content:center;justify-content:center}
+.rack-msg{display:flex;flex-direction:column;align-items:center;gap:10px;color:#E9E9EC;text-align:center;padding:6px}
+.rack-msg p{margin:0;max-width:40ch}
+.rack-msg .btn{min-width:200px}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:6px;width:232px;align-content:start}
+.btn{appearance:none;font:inherit;font-weight:650;font-size:14px;line-height:1;padding:10px 12px;border-radius:9px;border:1px solid var(--line);background:var(--chrome-2);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:42px;text-decoration:none}
+.btn:hover:not(:disabled){background:color-mix(in srgb,var(--chrome-2) 80%,var(--ink) 8%)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.primary{background:var(--accent);border-color:transparent;color:var(--accent-ink)}
+.btn.primary:hover:not(:disabled){background:color-mix(in srgb,var(--accent) 88%,#fff)}
+.btn.sort{font-family:var(--slab);font-weight:400;font-size:16px;letter-spacing:.08em}
+.btn.small{min-height:34px;padding:7px 12px;font-size:13.5px}
+.btn.danger{color:var(--err-ink)}
+.btn svg{width:17px;height:17px;flex:none}
+.btn:focus-visible,.slot:focus-visible,.iconbtn:focus-visible,.fab:focus-visible,.tab:focus-visible,.mini-seg button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+@media (max-width:760px){
+  .dock{padding:6px 10px 10px}
+  .dock-main{grid-template-columns:1fr;gap:8px}
+  .controls{width:auto;grid-template-columns:repeat(4,1fr)}
+  .controls .span2{grid-column:span 2}
+  .btn{min-height:40px;padding:8px}
+}
+
+/* dialogs */
+dialog{border:none;border-radius:18px;padding:0;background:var(--panel);color:var(--ink);width:min(580px,calc(100vw - 20px));max-height:calc(100% - 20px);overflow:auto;box-shadow:0 30px 80px rgba(0,0,0,.45)}
+dialog::backdrop{background:var(--scrim)}
+.dlg{padding:22px 24px 20px}
+@media (max-width:480px){.dlg{padding:18px 16px 16px}}
+.dlg h2{font-family:var(--slab);font-weight:400;font-size:28px;line-height:1.1;margin:0 0 6px}
+.dlg h3{font-size:16px;margin:18px 0 6px}
+.dlg p{margin:0 0 8px}
+.lede{color:var(--ink-soft);max-width:48ch}
+.hero{display:flex;gap:4px;margin:2px 0 16px;--tw:34px;--th:calc(34px*1.34);flex-wrap:wrap}
+.hero .gap{width:12px}
+.hero .tile{cursor:default}
+.tabs{display:flex;gap:4px;padding:4px;background:var(--panel-2);border-radius:12px;margin:14px 0 6px}
+.tab{flex:1;border:none;background:transparent;padding:10px 12px;border-radius:9px;font-weight:700;cursor:pointer;color:var(--ink-soft);font-size:14.5px}
+.tab[aria-selected="true"]{background:var(--panel);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.field{margin-top:14px}
+.flabel{display:block;font-weight:700;font-size:14px;margin-bottom:6px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel-2)}
+.seg input{position:absolute;opacity:0;width:1px;height:1px}
+.seg label{padding:9px 16px;cursor:pointer;font-weight:600;font-size:14px;border-right:1px solid var(--line)}
+.seg label:last-of-type{border-right:none}
+.seg input:checked+label{background:var(--accent);color:var(--accent-ink)}
+.seg input:focus-visible+label{outline:3px solid var(--accent);outline-offset:-3px}
+.fhelp{font-size:13px;color:var(--ink-soft);margin:6px 0 0}
+.seats{display:grid;gap:0;margin-top:4px}
+.seatrow{display:grid;grid-template-columns:22px auto minmax(0,1fr);gap:8px 10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.seatrow:last-child{border-bottom:none}
+.seatno{font-family:var(--slab);color:var(--ink-soft);font-size:15px}
+.mini-seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:none;justify-self:start}
+.dlg h2:focus{outline:none}
+.mini-seg button{border:none;background:var(--panel-2);padding:7px 10px;font-weight:600;font-size:13px;cursor:pointer;border-right:1px solid var(--line);white-space:nowrap}
+.mini-seg button:last-child{border-right:none}
+.mini-seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.seatdetail{min-width:0;display:flex;align-items:center;gap:8px}
+.seatdetail .hint{font-size:13px;color:var(--ink-soft)}
+@media (max-width:520px){.seatrow{grid-template-columns:22px minmax(0,1fr)} .seatdetail{grid-column:2}}
+.txt{font:inherit;font-size:15px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);width:100%;min-width:0}
+.txt:focus{outline:3px solid color-mix(in srgb,var(--accent) 60%,transparent);outline-offset:0;border-color:var(--accent)}
+.notice{padding:12px 14px;border-radius:10px;background:var(--panel-2);font-size:14px;margin:10px 0 0}
+.notice.warn{background:color-mix(in srgb,var(--gold) 22%,var(--panel))}
+.notice p{margin:0 0 6px}.notice p:last-child{margin:0}
+.notice ol{margin:6px 0 0;padding-left:20px}.notice li{margin:3px 0}
+.tlist{display:grid;gap:8px;margin-top:4px}
+.titem{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:var(--panel-2)}
+.titem .tmeta{flex:1;min-width:0}
+.titem .tname{font-weight:700}
+.titem .tsub{font-size:13px;color:var(--ink-soft)}
+.tempty{font-size:14px;color:var(--ink-soft);padding:6px 0}
+.lseats{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}
+.lseat{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--panel-2)}
+.lseat .lname{flex:1;min-width:0;font-weight:650}
+.lseat .lname small{display:block;font-weight:500;color:var(--ink-soft);font-size:12.5px}
+.lseat.open .lname{color:var(--ink-soft);font-weight:600}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px;align-items:center}
+.actions .sp{flex:1}
+.rules{max-height:min(70vh,640px);overflow:auto;padding-right:6px}
+.rules p,.rules li{max-width:62ch}
+.rules ul{margin:4px 0 8px;padding-left:20px}
+.rules li{margin:3px 0}
+.res{width:100%;border-collapse:collapse;font-size:14px;margin-top:10px}
+.res th,.res td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+.res th{font-size:12.5px;color:var(--ink-soft);font-weight:600}
+.res td.num,.res th.num{text-align:right;font-variant-numeric:tabular-nums}
+.res tr.win td{font-weight:700}
+.minis{display:flex;flex-wrap:wrap;gap:2px;--tw:20px;--th:calc(20px*1.34)}
+.minis .tile{cursor:default;box-shadow:0 1px 0 var(--tile-edge)}
+.res-wrap{overflow-x:auto}
+.note{font-size:13.5px;color:var(--ink-soft);margin-top:10px}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">Rack &amp; Run</div>
+    <div class="players" id="players" aria-label="Players"></div>
+    <div class="tools">
+      <span class="mode-tag" id="modeTag" hidden></span>
+      <div class="pool" title="Tiles left in the pool"><span class="stk" aria-hidden="true"></span><span><span id="poolN">0</span><span class="lbl"> in pool</span></span></div>
+      <button class="iconbtn" id="bRules" type="button" aria-label="How to play"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg><span class="lbl">Rules</span></button>
+      <button class="iconbtn" id="bScores" type="button" aria-label="Scores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg><span class="lbl">Scores</span></button>
+      <button class="iconbtn" id="bNew" type="button" aria-label="Game menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c.6-3.4 3-5.4 6-5.4s5.4 2 6 5.4"/><path d="M17 6v6M14 9h6"/></svg><span class="lbl">Players</span></button>
+    </div>
+  </header>
+
+  <main class="board-wrap">
+    <div class="board" id="board" data-drop="table">
+      <div class="table" id="table" aria-label="Table"></div>
+      <div class="empty" id="empty"><p id="emptyMsg">The table is empty. Sets you and your opponents play will land here.</p></div>
+    </div>
+    <button class="fab" id="fab" type="button" data-act="new" data-drop="new" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New set</button>
+  </main>
+
+  <section class="dock" aria-label="Your rack">
+    <div class="status">
+      <div class="msgs" aria-live="polite">
+        <p class="feed" id="feed"></p>
+        <p class="prompt" id="prompt"></p>
+      </div>
+      <button class="btn small skip" id="bSkip" type="button" hidden></button>
+      <div class="meld" id="meld" hidden><span>Opening</span><span class="bar"><i></i></span><span><b>0</b> / 30</span></div>
+    </div>
+    <div class="timer" id="timer" hidden><i></i></div>
+    <div class="dock-main">
+      <div class="rack" id="rack" data-drop="rack" aria-label="Your tiles"></div>
+      <div class="controls">
+        <button class="btn sort" id="bSortG" type="button" title="Sort into groups (same number)" aria-label="Sort rack into groups">777</button>
+        <button class="btn sort" id="bSortR" type="button" title="Sort into runs (by color)" aria-label="Sort rack into runs">789</button>
+        <button class="btn" id="bHint" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>Hint</button>
+        <button class="btn" id="bUndo" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>Undo</button>
+        <button class="btn span2" id="bDraw" type="button"><span>Draw tile</span></button>
+        <button class="btn primary span2" id="bDone" type="button">Done</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<dialog id="dlgSetup" aria-labelledby="setupTitle">
+  <div class="dlg">
+    <div class="hero" id="hero" aria-hidden="true"></div>
+    <h2 id="setupTitle" tabindex="-1" autofocus>Rack &amp; Run</h2>
+    <p class="lede">Build runs and groups and be the first to empty your rack. Played by the classic Rummikub rules, with 2 to 4 players in any mix of people and bots.</p>
+    <div class="notice warn" id="setupNotice" hidden></div>
+    <div class="tabs" role="tablist" aria-label="Where to play">
+      <button class="tab" role="tab" id="tabLocal" aria-controls="paneLocal" type="button">One device</button>
+      <button class="tab" role="tab" id="tabOnline" aria-controls="paneOnline" type="button">Separate devices</button>
+    </div>
+
+    <section id="paneLocal" role="tabpanel" aria-labelledby="tabLocal">
+      <p class="fhelp">Play against bots, or pass one phone, tablet or computer between players. Each person’s tiles stay hidden until they tap to see them.</p>
+      <div class="seats" id="seatsLocal"></div>
+      <div class="field">
+        <span class="flabel" id="lTimerL">Turn timer</span>
+        <div class="seg" role="radiogroup" aria-labelledby="lTimerL">
+          <input type="radio" name="timerL" id="tl0" value="0" checked><label for="tl0">Off</label>
+          <input type="radio" name="timerL" id="tl60" value="60"><label for="tl60">1 min</label>
+          <input type="radio" name="timerL" id="tl120" value="120"><label for="tl120">2 min</label>
+        </div>
+      </div>
+      <p class="notice warn" id="localWarn" hidden></p>
+      <div class="actions">
+        <button type="button" class="btn" data-open="rules">How to play</button>
+        <span class="sp"></span>
+        <button type="button" class="btn" data-resume hidden>Back to game</button>
+        <button type="button" class="btn primary" id="bDeal">Deal tiles</button>
+      </div>
+    </section>
+
+    <section id="paneOnline" role="tabpanel" aria-labelledby="tabOnline" hidden>
+      <div id="onlineOff" class="notice"></div>
+      <div id="onlineOn" hidden>
+        <div class="field">
+          <label class="flabel" for="myName">Your name at the table</label>
+          <input class="txt" id="myName" maxlength="20" autocomplete="nickname" placeholder="e.g. Sam">
+        </div>
+        <div id="curOnline" class="notice" hidden></div>
+        <h3>Join a table</h3>
+        <div class="tlist" id="tableList"><p class="tempty">Looking for tables…</p></div>
+        <h3>Or start a new table</h3>
+        <p class="fhelp">Seat 1 is you. Choose Person for each seat a friend will take from their own device.</p>
+        <div class="seats" id="seatsOnline"></div>
+        <div class="field">
+          <span class="flabel" id="lTimerO">Turn timer</span>
+          <div class="seg" role="radiogroup" aria-labelledby="lTimerO">
+            <input type="radio" name="timerO" id="to0" value="0"><label for="to0">Off</label>
+            <input type="radio" name="timerO" id="to60" value="60"><label for="to60">1 min</label>
+            <input type="radio" name="timerO" id="to120" value="120" checked><label for="to120">2 min</label>
+          </div>
+          <p class="fhelp">With a timer, anyone at the table can skip a player who has wandered off.</p>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn" data-open="rules">How to play</button>
+          <span class="sp"></span>
+          <button type="button" class="btn" data-resume hidden>Back to game</button>
+          <button type="button" class="btn primary" id="bCreate">Create table</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</dialog>
+
+<dialog id="dlgLobby" aria-labelledby="lobTitle">
+  <div class="dlg">
+    <h2 id="lobTitle" tabindex="-1" autofocus>Waiting for players</h2>
+    <p class="lede">Everyone opens Rack &amp; Run on their own phone, tablet or computer, taps Players, chooses Separate devices, and joins this table.</p>
+    <ul class="lseats" id="lobSeats"></ul>
+    <p class="note" id="lobNote"></p>
+    <div class="actions"><button class="btn danger" type="button" id="bLobLeave">Leave table</button><span class="sp"></span><button class="btn primary" type="button" id="bLobStart">Start game</button></div>
+  </div>
+</dialog>
+
+<dialog id="dlgRules" aria-labelledby="rulesTitle">
+  <div class="dlg">
+    <h2 id="rulesTitle">How to play</h2>
+    <div class="rules">
+      <p>Be the first player to lay down every tile on your rack.</p>
+      <h3>The tiles</h3>
+      <p>There are 106 tiles: the numbers 1 to 13 in red, blue, orange and black, two of each, plus two jokers. Everyone starts with 14 tiles. The rest form the face-down pool.</p>
+      <h3>Sets</h3>
+      <ul>
+        <li>A run is three or more consecutive numbers in one color, like blue 4, 5, 6. A 1 can’t follow a 13.</li>
+        <li>A group is three or four tiles of the same number, each in a different color.</li>
+      </ul>
+      <h3>Your opening</h3>
+      <p>Your first play must be one or more new sets made only from your own tiles, worth at least 30 points in total (each tile counts its number). Until you’ve opened, you can’t touch tiles on the table.</p>
+      <h3>Each turn</h3>
+      <p>Play at least one tile from your rack, then press Done. If you can’t play, or would rather not, draw a tile instead. Drawing ends your turn, so you can’t play the tile you just drew. When the pool is empty, you pass.</p>
+      <h3>Rearranging the table</h3>
+      <p>After your opening, you can split, combine and rebuild any sets on the table, as long as every set is valid when you press Done and at least one tile came from your rack. Tiles that were already on the table can’t go back to your rack.</p>
+      <h3>Jokers</h3>
+      <p>A joker stands in for any tile. In your opening it counts as the tile it replaces. You can take a joker from the table by putting the tile it stands for in its place, then use the joker in another set the same turn.</p>
+      <h3>Scoring</h3>
+      <p>When someone empties their rack, everyone else loses the value of the tiles still on their rack (a joker costs 30) and the winner gains the total. If the pool runs out and nobody can play, the lowest rack wins. A round is one game per player; the most games won takes the match, with points as the tiebreaker.</p>
+      <h3>Playing together</h3>
+      <ul>
+        <li>One device: set two or more seats to Player. When it’s someone’s turn, hand them the device; they tap to reveal their tiles.</li>
+        <li>Separate devices: each person opens Rack &amp; Run on their own device, as the Android app or the website. One person creates a table, the others join it from the list. Moves show up on every screen as they happen.</li>
+        <li>Each device is its own player, so use the same phone or computer to come back to a game you left.</li>
+        <li>Need to go? Players, then Leave table, hands your seat to a bot so the others can keep playing.</li>
+      </ul>
+      <h3>Using the table</h3>
+      <ul>
+        <li>Tap or click tiles to select them, then press + on a set to add them, or New set to start one. You can also drag tiles, including several selected tiles at once.</li>
+        <li>A teal bar marks tiles you played this turn. Those can still go back to your rack.</li>
+        <li>Gold rings show what others played since your last turn, and the tile you last drew.</li>
+        <li>777 sorts your rack into groups and 789 into runs. You can drag tiles within your rack to arrange them.</li>
+        <li>Undo puts everything back as it was at the start of your turn.</li>
+        <li>Hint makes playable tiles glow. Press it again to lay the play out for you.</li>
+        <li>With the turn timer on, running out of time draws a tile for you. If your move was unfinished, the table is restored and you draw three tiles.</li>
+      </ul>
+    </div>
+    <div class="actions"><span class="sp"></span><button class="btn primary" type="button" data-close>Got it</button></div>
+  </div>
+</dialog>
+
+<dialog id="dlgResults" aria-labelledby="resTitle">
+  <div class="dlg">
+    <h2 id="resTitle"></h2>
+    <p class="lede" id="resSub"></p>
+    <div class="res-wrap"><table class="res" id="resTable"></table></div>
+    <p class="note" id="resNote"></p>
+    <div class="actions"><button class="btn" type="button" id="bResNew">Change players</button><span class="sp"></span><button class="btn primary" type="button" id="bNext">Next game</button></div>
+  </div>
+</dialog>
+
+<dialog id="dlgScores" aria-labelledby="scTitle">
+  <div class="dlg">
+    <h2 id="scTitle">Scores</h2>
+    <div class="res-wrap"><table class="res" id="scTable"></table></div>
+    <p class="note" id="scNote"></p>
+    <div class="actions"><span class="sp"></span><button class="btn primary" type="button" data-close>Close</button></div>
+  </div>
+</dialog>
+
+<script src="firebase-config.js"></script>
+<script src="backend.js"></script>
+<script>
+'use strict';
+/* LOGIC START */
+const TILES=[];
+(function(){let id=0;for(let k=0;k<2;k++)for(let c=0;c<4;c++)for(let n=1;n<=13;n++)TILES.push({id:id++,c:c,n:n});TILES.push({id:id++,j:true,jc:0});TILES.push({id:id++,j:true,jc:3});})();
+const T=id=>TILES[id];
+const tileValue=id=>T(id).j?30:T(id).n;
+
+/* Checks one set; returns display order and its point value (jokers count as the tile they stand for). */
+function analyze(ids){
+  const tiles=ids.map(T), real=tiles.filter(t=>!t.j), jks=tiles.filter(t=>t.j), size=ids.length;
+  const loose=()=>real.slice().sort((a,b)=>a.n-b.n||a.c-b.c).concat(jks).map(t=>t.id);
+  if(size<3||!real.length) return {valid:false,order:loose(),value:0};
+  let best=null;
+  const n0=real[0].n, c0=real[0].c;
+  if(size<=4&&real.every(t=>t.n===n0)&&new Set(real.map(t=>t.c)).size===real.length){
+    best={valid:true,type:'group',order:real.slice().sort((a,b)=>a.c-b.c).concat(jks).map(t=>t.id),value:n0*size};
+  }
+  if(size<=13&&real.every(t=>t.c===c0)){
+    const ns=real.map(t=>t.n);
+    if(new Set(ns).size===ns.length){
+      const mn=Math.min.apply(null,ns), mx=Math.max.apply(null,ns);
+      const s=Math.min(mn,14-size), lo=Math.max(1,mx-size+1);
+      if(s>=lo){
+        const by={}; real.forEach(t=>{by[t.n]=t;}); let ji=0, value=0; const order=[];
+        for(let v=s;v<s+size;v++){order.push((by[v]||jks[ji++]).id);value+=v;}
+        if(!best||value>best.value) best={valid:true,type:'run',order:order,value:value};
+      }
+    }
+  }
+  return best||{valid:false,order:loose(),value:0};
+}
+
+/* Splits same-number tiles (counts per color) plus z jokers into valid groups, or returns null. */
+function groupAssign(gc,z){
+  const tiles=[]; for(let c=0;c<4;c++) for(let i=0;i<gc[c];i++) tiles.push(c);
+  if(!tiles.length) return z===0?[]:null;
+  for(let m=1;m<=3;m++){
+    const groups=[]; for(let k=0;k<m;k++) groups.push([]);
+    const rec=i=>{
+      if(i===tiles.length){
+        if(groups.some(g=>!g.length)) return null;
+        const need=groups.map(g=>Math.max(0,3-g.length)), room=groups.map(g=>4-g.length);
+        const sn=need.reduce((a,b)=>a+b,0), sr=room.reduce((a,b)=>a+b,0);
+        if(z<sn||z>sr) return null;
+        let extra=z-sn; const jk=need.slice();
+        for(let k=0;k<m&&extra>0;k++){const add=Math.min(extra,room[k]-need[k]);jk[k]+=add;extra-=add;}
+        return groups.map((g,k)=>({colors:g.slice(),jokers:jk[k]}));
+      }
+      for(let k=0;k<m;k++){
+        if(groups[k].indexOf(tiles[i])>=0) continue;
+        groups[k].push(tiles[i]); const r=rec(i+1); groups[k].pop(); if(r) return r;
+      }
+      return null;
+    };
+    const r=rec(0); if(r) return r;
+  }
+  return null;
+}
+const GOK=[];
+for(let s=0;s<=4;s++){GOK.push([]);for(let d=0;d<=4;d++){GOK[s].push([]);for(let z=0;z<=2;z++){let ok=false;if(s+d<=4){const gc=[0,0,0,0];for(let k=0;k<d;k++)gc[k]=2;for(let k=d;k<d+s;k++)gc[k]=1;ok=!!groupAssign(gc,z);}GOK[s][d].push(ok);}}}
+
+/* Run-length states per color: up to two runs in progress, lengths capped at 3. */
+const PAIRS=[], PIDX={};
+for(let a=0;a<=3;a++)for(let b=0;b<=a;b++){PIDX[a*4+b]=PAIRS.length;PAIRS.push([a,b]);}
+const pidx=(x,y)=>x>=y?PIDX[x*4+y]:PIDX[y*4+x];
+const TRANS=PAIRS.map(function(p){
+  const out=[[],[],[]];
+  for(let f=0;f<=2;f++) for(let mask=0;mask<4;mask++){
+    let ok=true,cnt=0; const nl=[];
+    for(let s=0;s<2;s++){const L=p[s],on=(mask>>s)&1; if(on){if(!L){ok=false;break;}cnt++;nl.push(Math.min(L+1,3));} else if(L>0&&L<3){ok=false;break;}}
+    if(!ok||cnt>f) continue;
+    for(let i=cnt;i<f;i++) nl.push(1);
+    while(nl.length<2) nl.push(0);
+    out[f].push({np:pidx(nl[0],nl[1]),mask:mask});
+  }
+  return out;
+});
+const P10=[1,10,100,1000];
+
+/* Finds the arrangement that uses every table tile and scores the most rack tiles.
+   Dynamic program over numbers 1..13, tracking open runs per color and joker use. */
+function solveBoard(tableIds,rackIds,opt){
+  const Tc=new Int8Array(56), Rc=new Int8Array(56);
+  const tPool=[], rPool=[]; for(let i=0;i<56;i++){tPool.push([]);rPool.push([]);}
+  const tJ=[], rJ=[];
+  for(const id of tableIds){const t=T(id); if(t.j) tJ.push(id); else {Tc[t.c*14+t.n]++; tPool[t.c*14+t.n].push(id);}}
+  for(const id of rackIds){const t=T(id); if(t.j) rJ.push(id); else {Rc[t.c*14+t.n]++; rPool[t.c*14+t.n].push(id);}}
+  const Jt=tJ.length, J=Math.min(2,Jt+rJ.length);
+  const W=new Int32Array(14); for(let n=1;n<=13;n++) W[n]=opt.tileW(n);
+  const jw=opt.jokerW|0, budget=opt.budget||400000;
+  const memo=new Map(); let calls=0;
+  function f(n,c,S,j,gs,gd){
+    if(n===14){
+      let s=S;
+      for(let k=0;k<4;k++){const p=PAIRS[s%10]; s=(s-s%10)/10; if((p[0]&&p[0]<3)||(p[1]&&p[1]<3)) return -Infinity;}
+      return j<Jt?-Infinity:(j-Jt)*jw;
+    }
+    const key=((((n*5+c)*10000+S)*3+j)*5+gs)*5+gd;
+    const m=memo.get(key); if(m!==undefined) return m;
+    if(++calls>budget) throw new Error('budget');
+    let best=-Infinity;
+    if(c===4){
+      for(let z=0;z<=J-j;z++){ if(!GOK[gs][gd][z]) continue; const v=f(n+1,0,S,j+z,0,0); if(v>best) best=v; }
+    } else {
+      const div=P10[c], ps=((S/div)|0)%10, idx=c*14+n, t=Tc[idx], r=Rc[idx];
+      for(let k=t;k<=t+r;k++){
+        const gain=(k-t)*W[n];
+        for(let g=0;g<=k;g++){
+          const a=k-g, ngs=gs+(g===1?1:0), ngd=gd+(g===2?1:0);
+          for(let y=0;y<=J-j&&a+y<=2;y++){
+            const tl=TRANS[ps][a+y];
+            for(let q=0;q<tl.length;q++){
+              const v=f(n,c+1,S+(tl[q].np-ps)*div,j+y,ngs,ngd);
+              if(v>-Infinity&&v+gain>best) best=v+gain;
+            }
+          }
+        }
+      }
+    }
+    memo.set(key,best); return best;
+  }
+  let top;
+  try{ top=f(1,0,0,0,0,0); }catch(e){ return null; }
+  if(top===-Infinity) return null;
+  const sets=[], runs=[[],[],[],[]], jq=tJ.concat(rJ);
+  const tp=tPool.map(a=>a.slice()), rp=rPool.map(a=>a.slice());
+  let n=1,c=0,S=0,j=0,gs=0,gd=0, gT=[[],[],[],[]];
+  try{
+    while(n<14){
+      const cur=f(n,c,S,j,gs,gd);
+      if(c===4){
+        let done=false;
+        for(let z=0;z<=J-j&&!done;z++){
+          if(!GOK[gs][gd][z]) continue;
+          if(f(n+1,0,S,j+z,0,0)===cur){
+            const asg=groupAssign(gT.map(a=>a.length),z); if(!asg) return null;
+            const pools=gT.map(a=>a.slice());
+            for(const grp of asg){const ids=grp.colors.map(cc=>pools[cc].pop()); for(let q=0;q<grp.jokers;q++) ids.push(jq.shift()); sets.push(ids);}
+            j+=z; done=true;
+          }
+        }
+        if(!done) return null;
+        n++; c=0; gs=0; gd=0; gT=[[],[],[],[]];
+      } else {
+        const div=P10[c], ps=((S/div)|0)%10, idx=c*14+n, t=Tc[idx], r=Rc[idx];
+        let fd=null;
+        outer: for(let k=t;k<=t+r;k++){
+          const gain=(k-t)*W[n];
+          for(let g=0;g<=k;g++){
+            const a=k-g;
+            for(let y=0;y<=J-j&&a+y<=2;y++){
+              for(const tr of TRANS[ps][a+y]){
+                const v=f(n,c+1,S+(tr.np-ps)*div,j+y,gs+(g===1?1:0),gd+(g===2?1:0));
+                if(v>-Infinity&&v+gain===cur){fd={k:k,g:g,y:y,tr:tr};break outer;}
+              }
+            }
+          }
+        }
+        if(!fd) return null;
+        const real=tp[idx].splice(0); for(let q=t;q<fd.k;q++) real.push(rp[idx].shift());
+        gT[c]=real.slice(0,fd.g);
+        const slot=real.slice(fd.g); for(let q=0;q<fd.y;q++) slot.push(jq.shift());
+        const rl=runs[c], nl=[];
+        for(let s=0;s<2;s++){const run=rl[s]; if(!run) continue; if((fd.tr.mask>>s)&1){run.push(slot.pop());nl.push(run);} else sets.push(run);}
+        while(slot.length) nl.push([slot.pop()]);
+        nl.sort((A,B)=>Math.min(B.length,3)-Math.min(A.length,3));
+        runs[c]=nl;
+        S+=(fd.tr.np-ps)*div; j+=fd.y; gs+=(fd.g===1?1:0); gd+=(fd.g===2?1:0); c++;
+      }
+    }
+  }catch(e){ return null; }
+  for(const rl of runs) for(const run of rl) sets.push(run);
+  const used=new Set(); sets.forEach(s=>s.forEach(id=>used.add(id)));
+  for(const id of tableIds) if(!used.has(id)) return null;
+  for(const s of sets) if(!analyze(s).valid) return null;
+  return {sets:sets,played:new Set(rackIds.filter(id=>used.has(id))),score:top};
+}
+
+/* Keeps untouched table sets in place (same tiles, same position) after a solver rearrangement. */
+function stabilize(oldSets,newSets){
+  const ty=id=>{const t=T(id);return t.j?'J':String(t.c*20+t.n);};
+  const sig=s=>s.map(ty).sort().join(',');
+  const ns=newSets.map(s=>s.slice()), where=new Map();
+  ns.forEach((s,i)=>s.forEach((id,p)=>where.set(id,[i,p])));
+  const used=new Array(ns.length).fill(false), match=new Array(oldSets.length).fill(-1);
+  oldSets.forEach((old,oi)=>{
+    const so=sig(old); const ni=ns.findIndex((s,i)=>!used[i]&&sig(s)===so); if(ni<0) return;
+    used[ni]=true; match[oi]=ni; const tgt=ns[ni];
+    for(const oid of old){
+      if(tgt.indexOf(oid)>=0) continue;
+      const k=tgt.findIndex(x=>ty(x)===ty(oid)&&old.indexOf(x)<0); if(k<0) continue;
+      const tid=tgt[k], loc=where.get(oid); if(!loc) continue;
+      ns[loc[0]][loc[1]]=tid; where.set(tid,loc);
+      tgt[k]=oid; where.set(oid,[ni,k]);
+    }
+  });
+  const pend=[]; ns.forEach((s,i)=>{if(!used[i]) pend.push(i);});
+  const out=[];
+  match.forEach(ni=>{ if(ni>=0) out.push(ns[ni]); else if(pend.length) out.push(ns[pend.shift()]); });
+  while(pend.length) out.push(ns[pend.shift()]);
+  return out;
+}
+
+function addSingles(table,rack,allowJoker){
+  const added=[]; let ch=true;
+  while(ch){
+    ch=false;
+    for(const id of rack.slice()){
+      if(T(id).j&&!allowJoker) continue;
+      for(const s of table){ if(analyze(s.concat(id)).valid){ s.push(id); rack.splice(rack.indexOf(id),1); added.push(id); ch=true; break; } }
+    }
+  }
+  return added;
+}
+
+function bestOpening(rack){
+  let best=null;
+  for(const jw of [0,200]){
+    const r=solveBoard([],rack,{tileW:n=>n*10+1,jokerW:jw,budget:300000});
+    if(!r||!r.played.size) continue;
+    const value=r.sets.reduce((a,s)=>a+analyze(s).value,0);
+    if(value>=30&&(!best||value>best.value)) best={sets:r.sets,played:r.played,value:value};
+  }
+  return best;
+}
+
+/* Decides a computer player's move. Returns the new table and rack, or null to draw. */
+function planAI(table,rack,melded,diff){
+  const realCount=ids=>ids.filter(id=>!T(id).j).length;
+  if(!melded){
+    const op=bestOpening(rack); if(!op) return null;
+    return {table:table.map(s=>s.slice()).concat(op.sets),rack:rack.filter(id=>!op.played.has(id)),played:Array.from(op.played),meldValue:op.value};
+  }
+  const small=rack.length<=4;
+  const jw=diff==='easy'?(small?60:-400):(small?60:-4);
+  const W=n=>n*10+6;
+  if(diff==='hard'||diff==='normal'){
+    /* Hard sees the whole table; Normal only "notices" a random part of it each turn. */
+    let sub=table, rest=[];
+    if(diff==='normal'){ sub=[]; table.forEach(s=>(Math.random()<0.55?sub:rest).push(s)); }
+    const r=solveBoard([].concat.apply([],sub),rack,{tileW:W,jokerW:jw,budget:450000});
+    if(r){
+      const pl=Array.from(r.played);
+      if(realCount(pl)>0||(pl.length&&pl.length===rack.length)){
+        const nt=stabilize(table,rest.map(s=>s.slice()).concat(r.sets)), nr=rack.filter(id=>!r.played.has(id));
+        if(diff==='normal'&&nr.length) pl.push.apply(pl,addSingles(nt,nr,nr.length<=3));
+        return {table:nt,rack:nr,played:pl};
+      }
+      if(diff==='hard') return null;
+    }
+  }
+  const nt=table.map(s=>s.slice()); let nr=rack.slice(); const played=[];
+  const r=solveBoard([],nr,{tileW:W,jokerW:jw,budget:300000});
+  if(r&&r.played.size){ const pl=Array.from(r.played); if(realCount(pl)>0){ r.sets.forEach(s=>nt.push(s)); nr=nr.filter(id=>!r.played.has(id)); played.push.apply(played,pl); } }
+  played.push.apply(played,addSingles(nt,nr,nr.length<=3));
+  if(!played.length) return null;
+  return {table:nt,rack:nr,played:played};
+}
+/* LOGIC END */
+
+/* ================= interface ================= */
+const $=s=>document.querySelector(s);
+const CN=['Red','Blue','Orange','Black'];
+const AV=['#12A391','#8A63D2','#D2557E','#3B82C4'];
+const BOT_NAMES=['Ada','Bram','Cleo','Dex'];
+const SKILL_NAME={easy:'Easy',normal:'Normal',hard:'Hard'};
+const KEY_LOCAL='rr2-local', KEY_UI='rr2-ui', KEY_PREFS='rr2-prefs', KEY_DRAFT='rr2-draft';
+const JOKER_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 1.6l2.2 6.3 6.6-.2-5.4 3.9 2.3 6.3L12 14l-5.7 3.9 2.3-6.3L3.2 7.7l6.6.2z"/><circle cx="12" cy="21" r="1.9" fill="currentColor"/></svg>';
+const BOT_SVG='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4M9.5 13h.01M14.5 13h.01"/></svg>';
+const tabId=Math.random().toString(36).slice(2,10);
+
+let G=null;          /* the game: shared online, saved on the device otherwise */
+const L={mode:null,gameId:null,turnKey:null,start:null,work:null,revealed:null,prompt:null,hintPlan:null,orders:{},shown:null,timedOut:null,autoSeat:false};
+let sel=new Set(), drag=null, hintIds=null, tickInt=null, botTimer=null, ghost=null, overEl=null;
+const cap={ready:false,db:null,user:null,room:null,uid:null,canWrite:null};
+let gameRef=null, tableDoc=null, unsubGame=null, unsubList=null, gameRoom=null, unsubPeers=null, tablesCache=[];
+let onlineUids=new Set(), busyUids=new Set(), lastBusy=null, prefs=null, setupTab='local', leaveArmed=false;
+
+const mk=(tag,cls,txt)=>{const e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e;};
+function shuffle(a){for(let i=a.length-1;i>0;i--){const k=Math.floor(Math.random()*(i+1));const x=a[i];a[i]=a[k];a[k]=x;}return a;}
+const clone=x=>JSON.parse(JSON.stringify(x));
+const plural=(n,w)=>n+' '+w+(n===1?'':'s');
+const rid=()=>Array.from({length:10},()=>'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random()*36)]).join('');
+function tLabel(id){const t=T(id);return t.j?'Joker':CN[t.c]+' '+t.n;}
+function aName(id){const t=T(id); if(t.j) return 'a joker'; return (t.c===2?'an ':'a ')+CN[t.c]+' '+t.n;}
+const store={get(k){try{return JSON.parse(localStorage.getItem(k)||'null');}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}},del(k){try{localStorage.removeItem(k);}catch(e){}}};
+
+/* ---------- who is looking at the screen ---------- */
+const NP=()=>G.players.length;
+const humanSeats=()=>G?G.players.map((p,i)=>p.kind==='human'?i:-1).filter(i=>i>=0):[];
+function viewSeat(){
+  if(!G) return null;
+  if(L.mode==='online'){ if(!cap.uid) return null; const i=G.players.findIndex(p=>p.kind==='human'&&p.uid===cap.uid); return i<0?null:i; }
+  const hs=humanSeats(); if(hs.length===1) return hs[0];
+  return L.revealed;
+}
+const myTurn=()=>!!G&&!G.over&&!!L.work&&G.current===viewSeat();
+const needsCover=()=>L.mode==='local'&&!!G&&!G.over&&humanSeats().length>1&&G.players[G.current].kind==='human'&&L.revealed!==G.current;
+function nm(seat){ return seat===viewSeat()?'You':G.players[seat].name; }
+function fresh(){ return new Set(myTurn()?L.start.rack:[]); }
+
+/* ---------- game state changes (pure, on a copy) ---------- */
+function drawForFirst(n){
+  const deck=shuffle(TILES.filter(t=>!t.j).map(t=>t.id)), first=new Array(n).fill(null);
+  let cont=first.map((_,i)=>i), tie=false;
+  while(cont.length>1){
+    const dr=cont.map(i=>({i:i,n:T(deck.pop()).n}));
+    dr.forEach(d=>{ if(first[d.i]===null) first[d.i]=d.n; });
+    const mx=Math.max.apply(null,dr.map(d=>d.n));
+    const next=dr.filter(d=>d.n===mx).map(d=>d.i); if(next.length>1) tie=true; cont=next;
+  }
+  return {first:cont[0],draws:first,tie:tie};
+}
+function newGameState(seats,settings,prev){
+  const deck=shuffle(TILES.map(t=>t.id));
+  const players=seats.map((s,i)=>({name:s.name,kind:s.kind,skill:s.skill||null,uid:s.uid||null,rack:sortIds(deck.splice(0,14),'runs'),melded:false,score:prev?prev.players[i].score:0,wins:prev?prev.players[i].wins:0}));
+  const d=drawForFirst(players.length);
+  return {players:players,pool:deck,table:[],current:d.first,passes:0,over:false,history:prev?prev.history:[],
+    log:[{t:0,k:'first',s:d.first,draws:d.draws,tie:d.tie}],drawn:null,gameNo:(prev?prev.gameNo:0)+1,turnId:1,turnStartedAt:Date.now(),settings:{timer:(settings&&settings.timer)|0}};
+}
+function logPush(g,e){ e.t=g.turnId; g.log.push(e); if(g.log.length>14) g.log.shift(); }
+function advance(g){ g.current=(g.current+1)%g.players.length; g.turnId++; g.turnStartedAt=Date.now(); }
+function applyCommit(g,seat,table,rack,info){
+  const p=g.players[seat], opened=!p.melded;
+  g.table=table.map(s=>analyze(s).order); p.rack=rack.slice(); p.melded=true; g.passes=0;
+  if(g.drawn&&g.drawn.seat===seat) g.drawn=null;
+  logPush(g,{s:seat,k:opened?'open':'play',n:info.ids.length,v:info.v||0,ids:info.ids,x:info.x||null});
+  if(!p.rack.length) finishGame(g,seat,false); else advance(g);
+}
+function applyDraw(g,seat,x){
+  const p=g.players[seat];
+  if(g.pool.length){ const id=g.pool.pop(); p.rack.push(id); g.drawn={seat:seat,id:id}; g.passes=0; logPush(g,{s:seat,k:x==='skip'?'skip':'draw',id:id,x:x||null}); advance(g); }
+  else { g.passes++; logPush(g,{s:seat,k:'pass',x:x||null}); if(g.passes>=g.players.length) finishGame(g,null,true); else advance(g); }
+}
+function applyPenalty(g,seat){
+  const p=g.players[seat]; let k=0;
+  while(k<3&&g.pool.length){ p.rack.push(g.pool.pop()); k++; }
+  logPush(g,{s:seat,k:'penalty',n:k}); advance(g);
+}
+function applyBot(g){
+  const i=g.current, p=g.players[i]; let mv=null;
+  try{ mv=planAI(g.table,p.rack,p.melded,p.skill||'normal'); }catch(e){ mv=null; }
+  if(mv) applyCommit(g,i,mv.table,mv.rack,{ids:mv.played,v:mv.meldValue||0}); else applyDraw(g,i,null);
+}
+function finishGame(g,w,blocked){
+  const P=g.players, tot=P.map(p=>p.rack.reduce((a,id)=>a+tileValue(id),0));
+  if(blocked){ w=0; for(let i=1;i<P.length;i++){ if(tot[i]<tot[w]||(tot[i]===tot[w]&&P[i].rack.length<P[w].rack.length)) w=i; } }
+  const deltas=P.map((p,i)=>i===w?0:(-(blocked?tot[i]-tot[w]:tot[i])||0));
+  deltas[w]=(-deltas.reduce((a,b)=>a+b,0))||0;
+  P.forEach((p,i)=>{p.score+=deltas[i];}); P[w].wins++;
+  g.over=true; g.history.push({deltas:deltas,winner:w,blocked:blocked,left:P.map(p=>p.rack.slice())});
+  logPush(g,{s:w,k:'win',blocked:blocked});
+}
+
+/* ---------- saving and syncing ---------- */
+function saveLocal(){ if(L.mode==='local'&&G) store.set(KEY_LOCAL,{G:G,revealed:L.revealed,orders:L.orders}); }
+function saveUI(){ store.set(KEY_UI,{mode:L.mode,gameId:L.gameId,orders:L.mode==='online'?L.orders:undefined}); }
+function saveDraft(){ if(myTurn()) store.set(KEY_DRAFT,{key:L.turnKey,work:L.work}); }
+function loadDraft(key){ const d=store.get(KEY_DRAFT); return d&&d.key===key?d.work:null; }
+
+async function pushState(ng){
+  if(L.mode==='local'){ G=ng; saveLocal(); afterChange(); return true; }
+  if(!tableDoc||!gameRef) return false;
+  const base=tableDoc;
+  const doc=Object.assign(clone(base),{G:ng,v:(base.v||0)+1,updatedAt:Date.now(),status:'playing'});
+  G=ng; tableDoc=doc; afterChange();
+  try{ await gameRef.set(doc); return true; }
+  catch(e){
+    if(tableDoc===doc){ tableDoc=base; G=clone(base.G); }
+    L.turnKey=null; afterChange();
+    say(e&&e.code==='invalid_argument'?'The game server refused that move. Check the Firebase rules described in the README.':'Couldn’t save that move. Check your connection and try again.',true);
+    return false;
+  }
+}
+/* Short leases so two devices never act at once: bot turns, seat claims, and table actions each get their own. */
+async function takeLock(kind,tries){
+  if(L.mode!=='online') return true;
+  const suffix=kind==='seat'?'-seat':kind==='act'?'-act':'', ttl=kind==='bot'||!kind?9000:2500;
+  for(let i=0;i<(tries||1);i++){
+    try{ const r=await cap.db.doc('locks/'+L.gameId+suffix).acquire({holder:tabId,ttlMs:ttl}); if(r.acquired) return true; }catch(e){}
+    if(i<(tries||1)-1) await new Promise(r=>setTimeout(r,700+Math.random()*500));
+  }
+  return false;
+}
+
+/* Called after every change to G, from this device or another. */
+function afterChange(){
+  syncTurn(); render(); scheduleBot(); maybeShowResults(); updatePresence(); ensureTick();
+}
+function syncTurn(){
+  if(!G) return;
+  const vs=viewSeat();
+  if(!G.over&&vs!==null&&G.current===vs&&G.players[vs].kind==='human'){
+    const key=(L.gameId||'local')+':'+G.gameNo+':'+G.turnId;
+    if(L.turnKey!==key||!L.work){
+      L.turnKey=key; sel.clear(); hintIds=null; L.hintPlan=null; L.prompt=null;
+      L.start={table:clone(G.table),rack:G.players[vs].rack.slice()};
+      L.work=loadDraft(key)||clone(L.start);
+    }
+  } else if(L.work){ L.work=null; L.start=null; sel.clear(); hintIds=null; L.hintPlan=null; }
+}
+function scheduleBot(){
+  if(botTimer){clearTimeout(botTimer);botTimer=null;}
+  if(!G||G.over||G.players[G.current].kind!=='bot') return;
+  if(L.mode==='online'&&viewSeat()===null) return;
+  const key=G.gameNo+':'+G.turnId;
+  botTimer=setTimeout(()=>runBot(key),700+Math.random()*500);
+}
+async function runBot(key){
+  botTimer=null;
+  const still=()=>G&&!G.over&&G.gameNo+':'+G.turnId===key&&G.players[G.current].kind==='bot';
+  if(!still()) return;
+  if(L.mode==='online'){
+    const ok=await takeLock('bot');
+    if(!ok){ botTimer=setTimeout(()=>runBot(key),3000+Math.random()*1500); return; }
+    if(!still()) return;
+  }
+  const ng=clone(G); applyBot(ng); pushState(ng);
+}
+
+/* ---------- your turn ---------- */
+function say(text,err){ L.prompt={text:text,err:!!err}; render(); }
+function hasChanges(){ if(!myTurn()) return false; return L.work.rack.length!==L.start.rack.length||JSON.stringify(L.work.table)!==JSON.stringify(L.start.table); }
+function meldValue(){
+  if(!myTurn()) return 0;
+  const fr=fresh(); let v=0;
+  for(const s of L.work.table){ if(s.some(id=>fr.has(id))){ const a=analyze(s); if(a.valid) v+=a.value; } }
+  return v;
+}
+function validateMove(){
+  const fr=fresh(), w=L.work;
+  const played=[].concat.apply([],w.table).filter(id=>fr.has(id));
+  if(!played.length) return {err:'Play at least one tile from your rack, or draw a tile.'};
+  const bad=w.table.map((s,i)=>analyze(s).valid?-1:i).filter(i=>i>=0);
+  if(bad.length) return {err:bad.length===1?'One set on the table isn’t valid yet. Fix the outlined set.':bad.length+' sets on the table aren’t valid yet. Fix the outlined sets.',bad:bad};
+  if(!G.players[viewSeat()].melded){
+    for(const s of w.table){ if(s.some(id=>fr.has(id))&&s.some(id=>!fr.has(id))) return {err:'Your opening must use only new sets from your rack.'}; }
+    const v=meldValue(); if(v<30) return {err:'Your opening sets add up to '+v+'. You need at least 30.'};
+  }
+  return {ok:true,ids:played};
+}
+function endMyTurn(){
+  sel.clear(); hintIds=null; L.hintPlan=null; L.prompt=null; L.work=null; L.start=null; store.del(KEY_DRAFT);
+  if(L.mode==='local'&&humanSeats().length>1) L.revealed=null;
+}
+function doDone(x){
+  if(!myTurn()) return;
+  const r=validateMove();
+  if(!r.ok){ say(r.err,true); if(r.bad) shakeSets(r.bad); return; }
+  const vs=viewSeat(), opened=!G.players[vs].melded, v=opened?meldValue():0;
+  const ng=clone(G), work=L.work;
+  endMyTurn();
+  applyCommit(ng,vs,work.table,work.rack,{ids:r.ids,v:v,x:x||null});
+  pushState(ng);
+}
+function doDraw(x){
+  if(!myTurn()) return;
+  const vs=viewSeat(), ng=clone(G);
+  endMyTurn(); applyDraw(ng,vs,x||null); pushState(ng);
+}
+function doUndo(){ if(!myTurn()) return; L.work=clone(L.start); sel.clear(); L.prompt=null; saveDraft(); render(); }
+function onTimeout(){
+  if(!myTurn()) return;
+  cancelDrag();
+  if(!hasChanges()){ doDraw('time'); return; }
+  if(validateMove().ok){ doDone('time'); return; }
+  const vs=viewSeat(), ng=clone(G); endMyTurn(); applyPenalty(ng,vs); pushState(ng);
+}
+function doHint(){
+  if(!myTurn()) return;
+  if(hintIds&&L.hintPlan){
+    L.work={table:clone(L.hintPlan.table),rack:L.hintPlan.rack.slice()};
+    hintIds=null; L.hintPlan=null; sel.clear(); saveDraft();
+    say('Laid out. Press Done to play it, or adjust it first.'); return;
+  }
+  const vs=viewSeat(), p=G.players[vs], st=L.start, key=L.turnKey;
+  $('#bHint').disabled=true;
+  setTimeout(()=>{
+    let plan=null;
+    try{
+      if(!p.melded){ const op=bestOpening(st.rack); if(op) plan={table:st.table.map(s=>s.slice()).concat(op.sets),rack:st.rack.filter(id=>!op.played.has(id)),played:Array.from(op.played)}; }
+      else plan=planAI(st.table,st.rack,true,'hard');
+    }catch(e){ plan=null; }
+    if(!myTurn()||L.turnKey!==key) return;
+    if(!plan){ say(p.melded?'No play found from your rack. Drawing a tile is your best option.':'No opening worth 30 yet. Draw a tile and try next turn.'); return; }
+    hintIds=new Set(plan.played); L.hintPlan={table:plan.table,rack:plan.rack};
+    say('The glowing tiles can be played ('+plan.played.length+'). Press Hint again to lay them out.');
+  },30);
+}
+async function nextGame(){
+  if(!G||!G.over) return;
+  if(L.mode==='online'){ if(viewSeat()===null) return; if(!(await takeLock('act',4))) return; if(!G||!G.over) return; }
+  const seats=G.players.map(p=>({name:p.name,kind:p.kind,skill:p.skill,uid:p.uid}));
+  L.revealed=null;
+  pushState(newGameState(seats,G.settings,G));
+}
+async function skipAbsent(){
+  if(!G||G.over||L.mode!=='online'||viewSeat()===null) return;
+  const key=G.gameNo+':'+G.turnId, cp=G.current;
+  if(G.players[cp].kind!=='human'||cp===viewSeat()) return;
+  if(!(await takeLock('act',3))) return;
+  if(!G||G.gameNo+':'+G.turnId!==key) return;
+  const ng=clone(G); applyDraw(ng,cp,'skip'); pushState(ng);
+}
+function revealSeat(){
+  if(!needsCover()) return;
+  L.revealed=G.current; G.turnStartedAt=Date.now(); saveLocal(); afterChange();
+}
+
+/* ---------- timer and the away check ---------- */
+function ensureTick(){ if(!tickInt) tickInt=setInterval(tick,250); }
+function tick(){
+  const bar=$('#timer'), skip=$('#bSkip');
+  if(!G||G.over||!G.settings||!G.settings.timer||needsCover()||G.players[G.current].kind!=='human'){ bar.hidden=true; skip.hidden=true; return; }
+  const total=G.settings.timer*1000, left=G.turnStartedAt+total-Date.now();
+  bar.hidden=false; bar.querySelector('i').style.width=Math.max(0,Math.min(100,left/total*100))+'%'; bar.classList.toggle('low',left<10000);
+  if(myTurn()&&left<=0&&L.timedOut!==L.turnKey){ L.timedOut=L.turnKey; onTimeout(); return; }
+  const canSkip=L.mode==='online'&&viewSeat()!==null&&G.current!==viewSeat()&&left<-15000;
+  skip.hidden=!canSkip;
+  if(canSkip) skip.textContent='Skip '+G.players[G.current].name+'’s turn';
+}
+
+/* ---------- tile moves ---------- */
+function canPick(id){
+  if(!myTurn()) return false;
+  if(L.work.rack.indexOf(id)>=0||fresh().has(id)) return true;
+  if(!G.players[viewSeat()].melded){ L.prompt={text:'You can rearrange tiles already on the table once you’ve opened with 30 points.',err:true}; return false; }
+  return true;
+}
+function detach(ids){
+  const X=new Set(ids), w=L.work;
+  for(let k=w.rack.length-1;k>=0;k--) if(X.has(w.rack[k])) w.rack.splice(k,1);
+  for(const s of w.table) for(let k=s.length-1;k>=0;k--) if(X.has(s[k])) s.splice(k,1);
+}
+function placeInOrder(seat,ids,before){
+  const o=(L.orders[seat]||[]).filter(x=>ids.indexOf(x)<0);
+  const i=before==null?-1:o.indexOf(before);
+  if(i<0) o.push.apply(o,ids); else o.splice.apply(o,[i,0].concat(ids));
+  L.orders[seat]=o;
+}
+function ordered(seat,ids){
+  const o=L.orders[seat]||[], have=new Set(ids), out=o.filter(x=>have.has(x)), os=new Set(out);
+  ids.forEach(x=>{ if(!os.has(x)) out.push(x); });
+  L.orders[seat]=out; return out;
+}
+function persistOrders(){ if(L.mode==='local') saveLocal(); else saveUI(); }
+function moveTiles(ids,t){
+  if(!G) return;
+  const vs=viewSeat();
+  if(!myTurn()){
+    if(t.type==='rack'&&vs!==null&&!G.over){ placeInOrder(vs,ids,t.before); persistOrders(); }
+    render(); return;
+  }
+  const w=L.work, fr=fresh();
+  if(t.type==='rack'){
+    if(ids.some(id=>w.rack.indexOf(id)<0&&!fr.has(id))){ say('Tiles that were on the table when your turn began can’t go to your rack.',true); return; }
+    detach(ids); w.rack.push.apply(w.rack,ids); placeInOrder(vs,ids,t.before); persistOrders();
+  } else if(t.type==='set'){
+    const target=w.table[t.index]; if(!target){ render(); return; }
+    if(!G.players[vs].melded&&target.some(id=>!fr.has(id))){ say('Before your opening, build new sets from your own tiles only.',true); return; }
+    detach(ids); target.push.apply(target,ids);
+  } else { detach(ids); w.table.push(ids.slice()); }
+  w.table=w.table.filter(s=>s.length);
+  sel.clear(); L.prompt=null; saveDraft();
+  render(); updatePresence();
+  ids.forEach(id=>{ const n=document.querySelector('#table .tile[data-id="'+id+'"]'); if(n) n.classList.add('pop'); });
+}
+function sortIds(r,mode){
+  const key=id=>{const t=T(id); if(t.j) return 1e6+id; return mode==='groups'?t.n*100+t.c*10:t.c*100+t.n;};
+  return r.sort((a,b)=>key(a)-key(b));
+}
+function onSort(mode){
+  const vs=viewSeat(); if(!G||vs===null) return;
+  const ids=myTurn()?L.work.rack.slice():G.players[vs].rack.slice();
+  L.orders[vs]=sortIds(ids,mode); persistOrders(); render();
+}
+function onTileTap(id,refocus){
+  if(!myTurn()) return;
+  if(sel.has(id)) sel.delete(id);
+  else { if(!canPick(id)){ render(); return; } L.prompt=null; sel.add(id); }
+  render();
+  if(refocus){ const n=document.querySelector('.tile[data-id="'+id+'"]'); if(n) n.focus(); }
+}
+
+/* ---------- rendering ---------- */
+function tileNode(id,cls){
+  const t=T(id), d=mk('div','tile '+(t.j?'joker jc'+t.jc:'c'+t.c)+(cls?' '+cls:''));
+  d.dataset.id=id;
+  d.innerHTML=t.j?JOKER_SVG:'<span class="nm">'+t.n+'</span><i class="mk"></i>';
+  return d;
+}
+function liveTile(id,flags){
+  const d=tileNode(id,flags.join(' '));
+  d.tabIndex=0; d.setAttribute('role','button'); d.setAttribute('aria-label',tLabel(id)); d.setAttribute('aria-pressed',sel.has(id)?'true':'false');
+  return d;
+}
+function recentIds(){
+  const out=new Set(); if(!G) return out;
+  const vs=viewSeat();
+  for(let i=G.log.length-1, seen=0;i>=0;i--,seen++){
+    const e=G.log[i];
+    if(vs!==null&&e.s===vs&&e.k!=='first'&&e.k!=='win') break;
+    if(vs===null&&seen>=NP()-1) break;
+    if((e.k==='open'||e.k==='play')&&e.ids) e.ids.forEach(x=>out.add(x));
+  }
+  return out;
+}
+function flagsFor(id,fr,rec){
+  const f=[];
+  if(sel.has(id)) f.push('sel');
+  if(fr&&fr.has(id)) f.push('fresh');
+  if(rec&&rec.has(id)) f.push('recent');
+  if(G&&G.drawn&&G.drawn.id===id&&G.drawn.seat===viewSeat()) f.push('recent');
+  if(hintIds&&hintIds.has(id)) f.push('hint');
+  if(drag&&drag.started&&drag.ids&&drag.ids.indexOf(id)>=0) f.push('lifted');
+  return f;
+}
+function render(){ renderPlayers(); renderTable(); renderRack(); renderControls(); renderStatus(); }
+function renderPlayers(){
+  const box=$('#players'); box.textContent='';
+  const tag=$('#modeTag');
+  if(!G){ $('#poolN').textContent='0'; tag.hidden=!(L.mode==='online'&&tableDoc); if(!tag.hidden) tag.textContent='Online'; return; }
+  tag.hidden=L.mode!=='online'; tag.textContent='Online';
+  const vs=viewSeat();
+  G.players.forEach((p,i)=>{
+    const turn=i===G.current&&!G.over;
+    const ch=mk('div','chip'+(turn?' turn':''));
+    const av=mk('span','av'+(p.kind==='bot'?' bot':''));
+    if(p.kind==='bot') av.innerHTML=BOT_SVG; else av.textContent=(p.name||'?').trim().charAt(0).toUpperCase()||'?';
+    av.style.setProperty('--av',AV[i%4]); av.setAttribute('aria-hidden','true');
+    if(L.mode==='online'&&p.kind==='human'&&p.uid&&onlineUids.has(p.uid)) av.appendChild(mk('span','dot'));
+    const who=mk('span','who'); who.appendChild(mk('span','nm',p.name+(i===vs&&L.mode==='online'?' (you)':'')));
+    const cnt=(i===vs&&myTurn())?L.work.rack.length:p.rack.length;
+    let sub=(p.kind==='bot'?'Bot, ':'')+plural(cnt,'tile');
+    if(turn&&p.kind==='bot') sub='thinking…';
+    else if(turn&&p.kind==='human'&&i!==vs&&p.uid&&busyUids.has(p.uid)) sub='arranging tiles…';
+    else if(!p.melded&&!G.over) sub+=', not opened';
+    who.appendChild(mk('span','sub',sub));
+    ch.appendChild(av); ch.appendChild(who);
+    ch.setAttribute('aria-label',p.name+', '+sub+(turn?', current turn':''));
+    box.appendChild(ch);
+  });
+  $('#poolN').textContent=G.pool.length;
+}
+function renderTable(){
+  const tb=$('#table'); tb.textContent='';
+  const table=myTurn()?L.work.table:(G?G.table:[]);
+  const fr=fresh(), rec=recentIds(), mine=myTurn(), melded=mine&&G.players[viewSeat()].melded;
+  table.forEach((set,i)=>{
+    const a=analyze(set);
+    const s=mk('div','set'+(a.valid?'':' bad')); s.dataset.drop='set:'+i;
+    s.setAttribute('role','group');
+    s.setAttribute('aria-label',(a.valid?(a.type==='run'?'Run':'Group'):'Unfinished set')+': '+a.order.map(tLabel).join(', '));
+    a.order.forEach(id=>s.appendChild(liveTile(id,flagsFor(id,fr,rec))));
+    if(mine&&sel.size&&!set.every(id=>sel.has(id))&&(melded||set.every(id=>fr.has(id)))){
+      const b=mk('button','slot','+'); b.type='button'; b.dataset.act='add'; b.dataset.set=i; b.setAttribute('aria-label','Add selected tiles to this set');
+      s.appendChild(b);
+    }
+    tb.appendChild(s);
+  });
+  $('#empty').hidden=table.length>0;
+  $('#emptyMsg').textContent=G?'The table is empty. Sets everyone plays will land here.':(L.mode==='online'&&tableDoc?'Waiting for the game to start.':'Tap Players to set up a game.');
+  $('#fab').hidden=!(mine&&sel.size);
+}
+function renderRack(){
+  const r=$('#rack'); r.textContent=''; r.classList.remove('veiled');
+  const vs=viewSeat();
+  const veil=(msg,btn,fn)=>{ r.classList.add('veiled'); const m=mk('div','rack-msg'); m.appendChild(mk('p','',msg)); if(btn){ const b=mk('button','btn primary',btn); b.type='button'; b.addEventListener('click',fn); m.appendChild(b);} r.appendChild(m); };
+  if(!G){ veil(L.mode==='online'&&tableDoc?'Your tiles appear here when the game starts.':'Your tiles appear here once a game is dealt.'); return; }
+  if(needsCover()){ const n=G.players[G.current].name; veil('Pass the device to '+n+'. Everyone else, look away.','Show '+n+'’s tiles',revealSeat); return; }
+  if(vs===null){
+    if(L.mode==='online') veil('You’re watching this table. Players’ tiles stay hidden.');
+    else veil(G.over?'Game over.':(G.players[G.current].kind==='bot'?'Tiles are hidden while the bots play.':'Tiles are hidden.'));
+    return;
+  }
+  const ids=myTurn()?L.work.rack:G.players[vs].rack;
+  ordered(vs,ids).forEach(id=>r.appendChild(liveTile(id,flagsFor(id,null,null))));
+  if(myTurn()&&Array.from(sel).some(id=>ids.indexOf(id)<0)){
+    const b=mk('button','slot wide','Back to rack'); b.type='button'; b.dataset.act='back'; r.appendChild(b);
+  }
+}
+function renderControls(){
+  const mine=myTurn(), vs=viewSeat();
+  $('#bHint').disabled=!mine; $('#bUndo').disabled=!hasChanges(); $('#bDraw').disabled=!mine; $('#bDone').disabled=!mine;
+  $('#bDraw span').textContent=G&&!G.pool.length?'Pass':'Draw tile';
+  $('#bSortG').disabled=$('#bSortR').disabled=!G||G.over||vs===null;
+}
+function entryText(e){
+  const vs=viewSeat(), you=e.s===vs, who=nm(e.s);
+  const pre=e.x==='time'?'Time ran out. ':'';
+  switch(e.k){
+    case 'first': return 'Drawing for first turn: '+G.players.map((p,i)=>(i===vs?'You':p.name)+' '+e.draws[i]).join(', ')+'.'+(e.tie?' A tie was re-drawn.':'')+' '+who+(you?' go':' goes')+' first.';
+    case 'open': return pre+who+' opened with '+plural(e.n,'tile')+' worth '+e.v+'.';
+    case 'play': return pre+who+' played '+plural(e.n,'tile')+'.';
+    case 'draw': return pre+who+' drew '+(you?aName(e.id):'a tile')+'.';
+    case 'skip': return who+(you?' were':' was')+' away, so '+(you?'your':'that')+' turn was skipped with a draw.';
+    case 'pass': return pre+who+' passed.';
+    case 'penalty': return 'Time ran out mid-move: the table was restored and '+who.replace(/^You$/,'you')+' drew '+plural(e.n,'penalty tile')+'.';
+    case 'left': return who+' left the table; a bot plays that seat now.';
+    case 'win': return e.blocked?'The pool is empty and nobody can play.':who+(you?' cleared your rack.':' cleared the rack.');
+  }
+  return '';
+}
+function renderStatus(){
+  const feed=$('#feed'), pr=$('#prompt'), m=$('#meld');
+  feed.textContent=G?G.log.slice(-Math.max(2,NP())).map(entryText).join(' '):'';
+  let txt='', err=false;
+  if(!G) txt=L.mode==='online'&&tableDoc?'Waiting for the game to start.':'Tap Players to start a game.';
+  else if(G.over) txt='Game over. Open Scores to see the standings, or start the next game.';
+  else if(needsCover()) txt=G.players[G.current].name+'’s turn.';
+  else if(!myTurn()){
+    const cp=G.players[G.current];
+    if(cp.kind==='bot') txt=cp.name+' is thinking…';
+    else if(L.mode==='online') txt='Waiting for '+cp.name+(cp.uid&&busyUids.has(cp.uid)?', who is arranging tiles…':'…');
+    else txt=cp.name+'’s turn.';
+  }
+  else if(L.prompt){ txt=L.prompt.text; err=L.prompt.err; }
+  else if(sel.size) txt=plural(sel.size,'tile')+' selected. Press + on a set to add '+(sel.size===1?'it':'them')+', or New set.';
+  else txt=(humanSeats().length>1?G.players[viewSeat()].name+', your turn. ':'Your turn. ')+(G.players[viewSeat()].melded?'Play or rearrange tiles, then press Done.':'Open with new sets worth 30 or more from your rack.');
+  pr.textContent=txt; pr.classList.toggle('err',err);
+  if(myTurn()&&!G.players[viewSeat()].melded){
+    const v=meldValue(); m.hidden=false; m.querySelector('b').textContent=v;
+    m.querySelector('i').style.width=Math.min(100,v/30*100)+'%'; m.classList.toggle('ok',v>=30);
+  } else m.hidden=true;
+}
+function shakeSets(idx){
+  idx.forEach(i=>{ const n=document.querySelectorAll('#table .set')[i]; if(n){ n.classList.remove('shake'); void n.offsetWidth; n.classList.add('shake'); } });
+}
+
+/* ---------- results and scores ---------- */
+function standings(){
+  const P=G.players; let best=0;
+  for(let i=1;i<P.length;i++){ if(P[i].wins>P[best].wins||(P[i].wins===P[best].wins&&P[i].score>P[best].score)) best=i; }
+  return best;
+}
+function maybeShowResults(){
+  if(!G||!G.over) return;
+  const key=(L.gameId||'local')+':'+G.gameNo;
+  if(L.shown===key) return;
+  L.shown=key; setTimeout(()=>{ if(G&&G.over) showResults(); },700);
+}
+function showResults(){
+  const h=G.history[G.history.length-1], P=G.players, w=h.winner, vs=viewSeat();
+  $('#resTitle').textContent=w===vs?'You win this game':P[w].name+' wins this game';
+  $('#resSub').textContent=h.blocked?'The pool ran out and nobody could play, so the lowest rack wins.':(w===vs?'You cleared your rack first.':P[w].name+' cleared the rack first.');
+  const tb=$('#resTable'); tb.textContent='';
+  const hr=mk('tr'); ['Player','Left on rack','This game','Total','Wins'].forEach((t,k)=>hr.appendChild(mk('th',k>=2?'num':'',t))); tb.appendChild(hr);
+  P.forEach((p,i)=>{
+    const tr=mk('tr',i===w?'win':''); tr.appendChild(mk('td','',i===vs?'You':p.name));
+    const td=mk('td'); if(!h.left[i].length) td.textContent='Empty'; else { const m=mk('div','minis'); h.left[i].forEach(id=>m.appendChild(tileNode(id,''))); td.appendChild(m); } tr.appendChild(td);
+    tr.appendChild(mk('td','num',(h.deltas[i]>0?'+':'')+h.deltas[i]));
+    tr.appendChild(mk('td','num',String(p.score)));
+    tr.appendChild(mk('td','num',String(p.wins)));
+    tb.appendChild(tr);
+  });
+  const g=G.history.length, n=P.length, inRound=((g-1)%n)+1, lead=standings();
+  $('#resNote').textContent=inRound===n?'Round complete. '+(lead===vs?'You lead':P[lead].name+' leads')+' the match with '+plural(P[lead].wins,'win')+'.':'Game '+inRound+' of '+n+' in this round.';
+  const canNext=L.mode==='local'||viewSeat()!==null;
+  $('#bNext').hidden=!canNext;
+  const d=$('#dlgResults'); if(!d.open) d.showModal();
+}
+function showScores(){
+  const tb=$('#scTable'); tb.textContent='';
+  if(!G){ $('#scNote').textContent='No games played yet.'; $('#dlgScores').showModal(); return; }
+  const P=G.players, vs=viewSeat();
+  const hr=mk('tr'); hr.appendChild(mk('th','','Game')); P.forEach((p,i)=>hr.appendChild(mk('th','num',i===vs?'You':p.name))); tb.appendChild(hr);
+  G.history.forEach((h,g)=>{ const tr=mk('tr'); tr.appendChild(mk('td','',String(g+1)+(h.blocked?' (blocked)':''))); h.deltas.forEach(d=>tr.appendChild(mk('td','num',(d>0?'+':'')+d))); tb.appendChild(tr); });
+  const tt=mk('tr','win'); tt.appendChild(mk('td','','Total')); P.forEach(p=>tt.appendChild(mk('td','num',String(p.score)))); tb.appendChild(tt);
+  const tw=mk('tr','win'); tw.appendChild(mk('td','','Games won')); P.forEach(p=>tw.appendChild(mk('td','num',String(p.wins)))); tb.appendChild(tw);
+  const lead=standings();
+  $('#scNote').textContent=G.history.length?((lead===vs?'You lead':P[lead].name+' leads')+' the match. Most games won wins; points break ties.'):'No games finished yet. Scores appear here after each game.';
+  $('#dlgScores').showModal();
+}
+
+/* ---------- setup: seats ---------- */
+function defaultPrefs(){
+  return {name:'',tab:'local',timerL:0,timerO:120,
+    local:[{type:'human',name:'You'},{type:'bot',skill:'normal'},{type:'bot',skill:'normal'},{type:'empty'}],
+    online:[{type:'human'},{type:'person'},{type:'person'},{type:'empty'}]};
+}
+function loadPrefs(){ const p=store.get(KEY_PREFS); const d=defaultPrefs(); if(!p) return d; return Object.assign(d,p); }
+function savePrefs(){ store.set(KEY_PREFS,prefs); }
+function segButtons(opts,cur,onPick,label){
+  const g=mk('div','mini-seg'); g.setAttribute('role','group'); g.setAttribute('aria-label',label);
+  opts.forEach(([v,t])=>{ const b=mk('button','',t); b.type='button'; b.setAttribute('aria-pressed',String(v===cur)); b.addEventListener('click',()=>onPick(v)); g.appendChild(b); });
+  return g;
+}
+function renderSeats(which){
+  const box=$(which==='local'?'#seatsLocal':'#seatsOnline'); box.textContent='';
+  const arr=prefs[which];
+  arr.forEach((s,i)=>{
+    const row=mk('div','seatrow');
+    row.appendChild(mk('span','seatno',String(i+1)));
+    const det=mk('div','seatdetail');
+    if(which==='online'&&i===0){
+      row.appendChild(mk('span','fhelp','You'));
+      det.appendChild(mk('span','hint','You create the table and start the game.'));
+    } else {
+      const types=which==='local'?[['human','Player'],['bot','Bot'],['empty','Empty']]:[['person','Person'],['bot','Bot'],['empty','Empty']];
+      row.appendChild(segButtons(types,s.type,v=>{ arr[i]={type:v,name:v==='human'?(i===0?'You':'Player '+(i+1)):undefined,skill:'normal'}; savePrefs(); renderSeats(which); },'Seat '+(i+1)));
+      if(s.type==='human'){
+        const inp=mk('input','txt'); inp.maxLength=20; inp.value=s.name||''; inp.placeholder='Player '+(i+1); inp.setAttribute('aria-label','Name for seat '+(i+1));
+        inp.addEventListener('input',()=>{ s.name=inp.value; savePrefs(); });
+        det.appendChild(inp);
+      } else if(s.type==='bot'){
+        det.appendChild(segButtons([['easy','Easy'],['normal','Normal'],['hard','Hard']],s.skill||'normal',v=>{ s.skill=v; savePrefs(); renderSeats(which); },'Bot skill for seat '+(i+1)));
+      } else if(s.type==='person'){
+        det.appendChild(mk('span','hint','Open for a friend to join'));
+      } else det.appendChild(mk('span','hint','No one sits here'));
+    }
+    row.appendChild(det);
+    box.appendChild(row);
+  });
+}
+function setTab(t){
+  setupTab=t; prefs.tab=t; savePrefs();
+  $('#tabLocal').setAttribute('aria-selected',String(t==='local')); $('#tabOnline').setAttribute('aria-selected',String(t==='online'));
+  $('#paneLocal').hidden=t!=='local'; $('#paneOnline').hidden=t!=='online';
+  if(t==='online'){ ensureCaps(); renderOnlinePane(); watchTables(); } else unwatchTables();
+}
+function inProgress(){ return !!G&&!G.over; }
+function openSetup(msg){
+  leaveArmed=false;
+  const n=$('#setupNotice'); n.hidden=!msg; if(msg) n.textContent=msg;
+  document.querySelectorAll('[data-resume]').forEach(b=>{ b.hidden=!(G||(L.mode==='online'&&tableDoc)); });
+  const set=(name,val)=>{ const x=document.querySelector('input[name="'+name+'"][value="'+val+'"]'); if(x) x.checked=true; };
+  set('timerL',prefs.timerL); set('timerO',prefs.timerO);
+  $('#myName').value=prefs.name||'';
+  renderSeats('local'); renderSeats('online');
+  const lw=$('#localWarn');
+  lw.hidden=!(L.mode==='online'&&G&&!G.over&&viewSeat()!==null);
+  lw.textContent='You’re in an online game. Dealing here leaves it, and a bot takes over your seat.';
+  setTab(L.mode==='online'?'online':(prefs.tab||'local'));
+  const d=$('#dlgSetup'); if(!d.open) d.showModal();
+}
+function startLocal(){
+  prefs.timerL=+(document.querySelector('input[name="timerL"]:checked')||{value:0}).value; savePrefs();
+  const seats=[]; let b=0;
+  const humanNames=prefs.local.filter(s=>s.type==='human').map(s=>(s.name||'').trim());
+  prefs.local.forEach((s,i)=>{
+    if(s.type==='human') seats.push({kind:'human',name:(s.name||'').trim()||'Player '+(i+1)});
+    else if(s.type==='bot'){ let nmb=BOT_NAMES[b++%4]; while(humanNames.indexOf(nmb)>=0) nmb=BOT_NAMES[b++%4]; seats.push({kind:'bot',skill:s.skill||'normal',name:nmb}); }
+  });
+  if(seats.length<2){ $('#setupNotice').hidden=false; $('#setupNotice').textContent='Fill at least two seats to play.'; return; }
+  if(!seats.some(s=>s.kind==='human')){ $('#setupNotice').hidden=false; $('#setupNotice').textContent='Make at least one seat a Player.'; return; }
+  leaveOnline(true);
+  L.mode='local'; L.gameId=null; L.revealed=null; L.orders={}; L.turnKey=null; L.shown=null; store.del(KEY_DRAFT); saveUI();
+  G=newGameState(seats,{timer:prefs.timerL},null);
+  $('#dlgSetup').close(); closeDlg('#dlgResults');
+  saveLocal(); afterChange();
+}
+function closeDlg(sel){ const d=$(sel); if(d&&d.open) d.close(); }
+
+/* ---------- online ---------- */
+let capsPromise=null;
+function ensureCaps(){ if(!capsPromise) capsPromise=initCaps(); return capsPromise; }
+function retryOnline(){ capsPromise=null; cap.ready=false; cap.db=null; cap.user=null; cap.uid=null; renderOnlinePane(); ensureCaps(); }
+async function initCaps(){
+  const C=window.claude;
+  if(C&&typeof C.use==='function'){
+    try{ cap.db=await C.use('db'); }catch(e){ cap.db=null; }
+    try{ cap.user=await C.use('user'); if(cap.user) cap.uid=await cap.user.id(); }catch(e){ cap.user=null; }
+    try{ cap.room=await C.use('room'); }catch(e){ cap.room=null; }
+    try{ if(cap.user) cap.canWrite=await cap.user.can('data.write'); }catch(e){ cap.canWrite=null; }
+  }
+  cap.ready=true;
+  if($('#dlgSetup').open&&setupTab==='online'){ renderOnlinePane(); watchTables(); }
+}
+const onlineOK=()=>!!(cap.db&&cap.uid);
+function renderOnlinePane(){
+  const off=$('#onlineOff'), on=$('#onlineOn');
+  if(!cap.ready){ off.hidden=false; on.hidden=true; off.innerHTML='<p>Checking whether online play is available here…</p>'; return; }
+  if(!onlineOK()){
+    on.hidden=true; off.hidden=false;
+    const st=window.RR_ONLINE_STATUS;
+    off.textContent='';
+    if(st==='unconfigured'){
+      off.innerHTML='<p><b>Online play isn’t set up in this copy yet.</b> It needs a free Firebase project connected to the app; the project’s README walks through it step by step.</p><p>You can still play on one device.</p>';
+    } else {
+      off.innerHTML='<p><b>Couldn’t reach the game server.</b> Check that this device is online, then try again.</p><p>You can still play on one device in the meantime.</p>';
+      const b=mk('button','btn small primary','Try again'); b.type='button'; b.addEventListener('click',retryOnline); off.appendChild(b);
+    }
+    return;
+  }
+  off.hidden=cap.canWrite!==false; on.hidden=false;
+  if(cap.canWrite===false) off.innerHTML='<p><b>You can watch tables, but not play yet.</b> Ask the person who shared this page to give you edit access, then reload.</p>';
+  const cur=$('#curOnline');
+  if(L.mode==='online'&&tableDoc){
+    cur.hidden=false; cur.textContent='';
+    const p=mk('p','',(tableDoc.status==='lobby'?'You’re at ':'You’re playing at ')+(tableDoc.title||'a table')+'.');
+    const b=mk('button','btn small danger',leaveArmed?'Tap again to leave':'Leave table'); b.type='button';
+    b.addEventListener('click',()=>{ if(!leaveArmed){ leaveArmed=true; renderOnlinePane(); return; } leaveTable(); });
+    cur.appendChild(p);
+    if(tableDoc.status==='playing'&&viewSeat()!==null&&G) cur.appendChild(mk('p','fhelp','Leaving hands your seat to a bot so the others can keep playing.'));
+    cur.appendChild(b);
+  } else cur.hidden=true;
+  $('#bCreate').disabled=cap.canWrite===false;
+  renderTableList();
+}
+function myName(){ const v=($('#myName').value||'').trim(); return v; }
+function needName(){
+  const v=myName();
+  if(!v){ const n=$('#setupNotice'); n.hidden=false; n.textContent='Enter your name first, so the others know who’s who.'; $('#myName').focus(); return null; }
+  prefs.name=v; savePrefs(); return v;
+}
+function watchTables(){
+  if(unsubList||!onlineOK()) return;
+  try{
+    unsubList=cap.db.collection('games').where('status','in',['lobby','playing']).limit(80).onSnapshot(qs=>{
+      tablesCache=qs.docs.map(d=>Object.assign({id:d.id},d.data())); renderTableList();
+    },()=>{ unsubList=null; tablesCache=[]; renderTableList(); });
+  }catch(e){ unsubList=null; }
+}
+function unwatchTables(){ if(unsubList){ unsubList(); unsubList=null; } }
+function renderTableList(){
+  const box=$('#tableList'); if(!box) return; box.textContent='';
+  const now=Date.now(), items=[];
+  tablesCache.forEach(t=>{
+    if(t.id===L.gameId) return;
+    const seats=t.seats?Object.keys(t.seats).map(k=>t.seats[k]).filter(Boolean):[];
+    if(t.status==='lobby'){
+      if(now-(t.updatedAt||0)>12*3600e3) return;
+      const mine=seats.some(s=>s.uid===cap.uid), taken=seats.filter(s=>s.type==='human'&&s.uid||s.type==='bot').length, open=seats.filter(s=>s.type==='open').length;
+      items.push({t:t,sub:'Waiting for players, '+taken+' of '+seats.length+' seats filled',btn:mine?'Open':(open?'Join':'Full'),dis:!mine&&!open,mine:mine});
+    } else if(t.G&&t.G.players){
+      const mine=t.G.players.some(p=>p.kind==='human'&&p.uid===cap.uid);
+      if(!mine&&now-(t.updatedAt||0)>3*3600e3) return;
+      if(mine&&now-(t.updatedAt||0)>7*24*3600e3) return;
+      items.push({t:t,sub:(t.G.over?'Between games':'Game '+t.G.gameNo+' in progress')+', '+t.G.players.map(p=>p.name).join(', '),btn:mine?'Rejoin':'Watch',mine:mine});
+    }
+  });
+  items.sort((a,b)=>(b.mine-a.mine)||((b.t.updatedAt||0)-(a.t.updatedAt||0)));
+  if(!items.length){ box.appendChild(mk('p','tempty',unsubList?'No open tables right now. Start one below and tell the others to join.':'Looking for tables…')); return; }
+  items.slice(0,8).forEach(it=>{
+    const row=mk('div','titem'); const m=mk('div','tmeta');
+    m.appendChild(mk('div','tname',it.t.title||'Table')); m.appendChild(mk('div','tsub',it.sub)); row.appendChild(m);
+    const b=mk('button','btn small'+(it.btn==='Join'||it.btn==='Rejoin'?' primary':''),it.btn); b.type='button'; b.disabled=!!it.dis||(it.btn==='Join'&&cap.canWrite===false);
+    b.addEventListener('click',()=>{ if(it.btn==='Join'&&!needName()) return; openOnline(it.t.id,it.btn==='Join'); });
+    row.appendChild(b); box.appendChild(row);
+  });
+}
+async function createTable(){
+  if(!onlineOK()) return;
+  const name=needName(); if(!name) return;
+  prefs.timerO=+(document.querySelector('input[name="timerO"]:checked')||{value:120}).value; savePrefs();
+  const seats={}; let others=0;
+  prefs.online.forEach((s,i)=>{
+    if(i===0) seats['0']={type:'human',uid:cap.uid,name:name};
+    else if(s.type==='person'){ seats[String(i)]={type:'open',uid:null,name:null}; others++; }
+    else if(s.type==='bot'){ seats[String(i)]={type:'bot',skill:s.skill||'normal'}; others++; }
+  });
+  if(!others){ const n=$('#setupNotice'); n.hidden=false; n.textContent='Add at least one Person or Bot seat.'; return; }
+  const id=rid(), now=Date.now();
+  const doc={status:'lobby',title:name+'’s table',host:cap.uid,createdAt:now,updatedAt:now,settings:{timer:prefs.timerO},seats:seats,v:0,G:null};
+  $('#bCreate').disabled=true;
+  try{ await cap.db.doc('games/'+id).set(doc); }
+  catch(e){ $('#bCreate').disabled=false; const n=$('#setupNotice'); n.hidden=false; n.textContent=e&&e.code==='quota_exceeded'?'The shared game storage is full. Old tables need clearing before a new one can start.':'Couldn’t create the table. Check your internet connection and try again.'; return; }
+  $('#bCreate').disabled=false;
+  openOnline(id,false);
+}
+function openOnline(id,autoSeat){
+  if(L.gameId!==id) leaveOnline(true);
+  if(L.mode==='local'&&G&&!G.over) saveLocal();
+  L.mode='online'; L.gameId=id; L.autoSeat=!!autoSeat; L.turnKey=null; L.shown=null; L.revealed=null;
+  const ui=store.get(KEY_UI); L.orders=(ui&&ui.gameId===id&&ui.orders)||{};
+  G=null; tableDoc=null; saveUI();
+  closeDlg('#dlgSetup'); closeDlg('#dlgResults');
+  gameRef=cap.db.doc('games/'+id);
+  unsubGame=gameRef.onSnapshot(onGameSnap,e=>{ unsubGame=null; if(L.gameId===id) openSetup('Lost the connection to the online table. Open it again from the list.'); });
+  joinRoom(id);
+  render();
+}
+function onGameSnap(snap){
+  if(!snap.exists){ if(L.gameId){ const id=L.gameId; leaveOnline(true); L.mode=null; saveUI(); render(); openSetup(id?'That table no longer exists.':''); } return; }
+  const d=clone(snap.data());
+  if(tableDoc&&d.status===tableDoc.status&&(d.v||0)<(tableDoc.v||0)) return;
+  tableDoc=d;
+  if(d.status==='closed'){ leaveOnline(true); L.mode=null; G=null; saveUI(); render(); openSetup('The host closed that table.'); return; }
+  if(d.status==='lobby'){
+    G=null; L.work=null; render();
+    if(L.autoSeat){ L.autoSeat=false; const k=Object.keys(d.seats||{}).find(k=>d.seats[k]&&d.seats[k].type==='open'); const already=Object.keys(d.seats||{}).some(k=>d.seats[k]&&d.seats[k].uid===cap.uid); if(k&&!already) takeSeat(k); }
+    renderLobby(); return;
+  }
+  closeDlg('#dlgLobby');
+  G=d.G; afterChange();
+}
+async function joinRoom(id){
+  if(!cap.room) return;
+  try{
+    const r=await cap.room.join('rr-'+id); if(L.gameId!==id){ r.leave().catch(()=>{}); return; }
+    gameRoom=r; lastBusy=null;
+    unsubPeers=r.onPeers(ch=>{
+      onlineUids=new Set(); busyUids=new Set();
+      ch.peers.forEach(p=>{ const u=p.by||(p.presence&&typeof p.presence.uid==='string'?p.presence.uid:null); if(u){ onlineUids.add(u); if(p.presence&&p.presence.busy&&!p.isMe) busyUids.add(u); } });
+      renderPlayers(); if(!myTurn()) renderStatus(); if($('#dlgLobby').open) renderLobby();
+    },()=>{});
+    updatePresence(true);
+  }catch(e){ gameRoom=null; }
+}
+function updatePresence(force){
+  if(!gameRoom) return;
+  const busy=!!(myTurn()&&hasChanges());
+  if(!force&&busy===lastBusy) return;
+  lastBusy=busy; gameRoom.presence({uid:cap.uid,busy:busy}).catch(()=>{});
+}
+function leaveOnline(silent){
+  if(unsubGame){ unsubGame(); unsubGame=null; }
+  if(unsubPeers){ unsubPeers(); unsubPeers=null; }
+  if(gameRoom){ gameRoom.leave().catch(()=>{}); gameRoom=null; }
+  onlineUids=new Set(); busyUids=new Set();
+  if(L.mode==='online'){
+    if(tableDoc&&tableDoc.status==='lobby'&&gameRef&&cap.uid){
+      const ref=gameRef;
+      if(tableDoc.host===cap.uid) ref.update({status:'closed',updatedAt:Date.now()}).catch(()=>{});
+      else { const k=Object.keys(tableDoc.seats||{}).find(k=>tableDoc.seats[k]&&tableDoc.seats[k].uid===cap.uid); if(k) ref.update({seats:{[k]:{type:'open',uid:null,name:null}},updatedAt:Date.now()}).catch(()=>{}); }
+    }
+    if(G&&viewSeat()!==null&&tableDoc&&tableDoc.status==='playing'){
+      const s=viewSeat(), ng=clone(G); ng.players[s].kind='bot'; ng.players[s].skill='normal'; ng.players[s].uid=null;
+      logPush(ng,{s:s,k:'left'});
+      const doc=Object.assign(clone(tableDoc),{G:ng,v:(tableDoc.v||0)+1,updatedAt:Date.now()});
+      if(gameRef) gameRef.set(doc).catch(()=>{});
+    }
+    G=null; tableDoc=null; L.work=null; L.start=null; L.gameId=null;
+  }
+  gameRef=null; closeDlg('#dlgLobby');
+  if(!silent) render();
+}
+function leaveTable(){
+  leaveOnline(false); L.mode=null; saveUI();
+  const loc=store.get(KEY_LOCAL);
+  if(loc&&loc.G&&!loc.G.over){ L.mode='local'; G=loc.G; L.revealed=loc.revealed; L.orders=loc.orders||{}; saveUI(); afterChange(); }
+  else render();
+  openSetup();
+}
+async function takeSeat(k){
+  const name=prefs.name||myName()||'Player';
+  if(!(await takeLock('seat'))){ setTimeout(()=>takeSeat(k),700+Math.random()*600); return; }
+  try{
+    const snap=await gameRef.get(); if(!snap.exists) return;
+    const d=snap.data(); if(d.status!=='lobby') return;
+    const seats=d.seats||{};
+    if(Object.keys(seats).some(x=>seats[x]&&seats[x].uid===cap.uid)) return;
+    if(!seats[k]||seats[k].type!=='open'){ const alt=Object.keys(seats).find(x=>seats[x]&&seats[x].type==='open'); if(!alt){ $('#lobNote').textContent='That table just filled up.'; return; } k=alt; }
+    await gameRef.update({seats:{[k]:{type:'human',uid:cap.uid,name:name}},updatedAt:Date.now()});
+  }catch(e){ $('#lobNote').textContent='Couldn’t take that seat. Check your internet connection and try again.'; }
+}
+function renderLobby(){
+  const d=tableDoc; if(!d||d.status!=='lobby') return;
+  $('#lobTitle').textContent=d.title||'Table';
+  const ul=$('#lobSeats'); ul.textContent='';
+  const keys=Object.keys(d.seats||{}).sort((a,b)=>a-b);
+  const mine=keys.find(k=>d.seats[k]&&d.seats[k].uid===cap.uid);
+  let filled=0, open=0;
+  keys.forEach(k=>{
+    const s=d.seats[k]; if(!s) return;
+    const li=mk('li','lseat'+(s.type==='open'?' open':''));
+    const av=mk('span','av'+(s.type==='bot'?' bot':'')); av.style.setProperty('--av',AV[(+k)%4]);
+    const ln=mk('span','lname');
+    if(s.type==='human'&&s.uid){
+      filled++; av.textContent=(s.name||'?').charAt(0).toUpperCase();
+      if(onlineUids.has(s.uid)) av.appendChild(mk('span','dot'));
+      ln.textContent=s.name+(s.uid===cap.uid?' (you)':'');
+      ln.appendChild(mk('small','',s.uid===d.host?'Host':(onlineUids.has(s.uid)?'Here now':'Joined')));
+    } else if(s.type==='bot'){ filled++; av.innerHTML=BOT_SVG; ln.textContent='Bot'; ln.appendChild(mk('small','',SKILL_NAME[s.skill]||'Normal')); }
+    else { open++; av.textContent='?'; ln.textContent='Open seat'; }
+    li.appendChild(av); li.appendChild(ln);
+    if(s.type==='open'&&!mine&&cap.canWrite!==false){ const b=mk('button','btn small primary','Sit here'); b.type='button'; b.addEventListener('click',()=>{ if(!prefs.name&&!myName()){ openSetup('Enter your name first, then join again.'); return; } takeSeat(k); }); li.appendChild(b); }
+    ul.appendChild(li);
+  });
+  const host=d.host===cap.uid, st=$('#bLobStart');
+  st.hidden=!host; st.disabled=filled<2; st.textContent=open&&filled>=2?'Start with '+filled+' players':'Start game';
+  $('#lobNote').textContent=host?(filled<2?'Waiting for someone to join.':(open?'Waiting for '+plural(open,'more player')+'. You can also start now; empty seats are dropped.':'Everyone’s here. Start when ready.')):(mine?'Waiting for the host to start the game.':'Pick an open seat to join.');
+  const dl=$('#dlgLobby'); if(!dl.open) dl.showModal();
+}
+async function startOnline(){
+  const d=tableDoc; if(!d||d.host!==cap.uid||d.status!=='lobby') return;
+  const keys=Object.keys(d.seats||{}).sort((a,b)=>a-b), seats=[]; let b=0;
+  const names=keys.map(k=>d.seats[k]).filter(s=>s&&s.type==='human'&&s.uid).map(s=>s.name);
+  keys.forEach(k=>{ const s=d.seats[k]; if(!s) return;
+    if(s.type==='human'&&s.uid) seats.push({kind:'human',uid:s.uid,name:s.name||'Player'});
+    else if(s.type==='bot'){ let n=BOT_NAMES[b++%4]; while(names.indexOf(n)>=0) n=BOT_NAMES[b++%4]; seats.push({kind:'bot',skill:s.skill||'normal',name:n}); } });
+  if(seats.length<2) return;
+  const g=newGameState(seats,d.settings||{},null);
+  const doc=Object.assign(clone(d),{status:'playing',G:g,v:1,updatedAt:Date.now()});
+  $('#bLobStart').disabled=true;
+  try{ await gameRef.set(doc); }catch(e){ $('#bLobStart').disabled=false; $('#lobNote').textContent='Couldn’t start the game. Check your connection and try again.'; }
+}
+
+/* ---------- drag and drop ---------- */
+function rackBefore(x,y){
+  const tiles=Array.from(document.querySelectorAll('#rack .tile[data-id]')).filter(t=>!drag||drag.ids.indexOf(+t.dataset.id)<0);
+  for(const t of tiles){
+    const r=t.getBoundingClientRect();
+    if(y>=r.top-5&&y<=r.bottom+5){ if(x<r.left+r.width/2) return +t.dataset.id; }
+    else if(r.top>y+5) return +t.dataset.id;
+  }
+  return null;
+}
+function targetAt(x,y){
+  const n=document.elementFromPoint(x,y); if(!n) return null;
+  const z=n.closest('[data-drop]'); if(!z) return null;
+  const d=z.dataset.drop;
+  if(drag&&drag.rackOnly&&d!=='rack') return null;
+  if(d==='rack') return {type:'rack',el:z,before:rackBefore(x,y)};
+  if(d.indexOf('set:')===0) return {type:'set',index:+d.slice(4),el:z};
+  if(d==='new') return {type:'new',el:z};
+  return {type:'new',el:$('#board'),cls:'over-board'};
+}
+function setOver(t){
+  if(overEl){ overEl.classList.remove('over','over-board'); overEl=null; }
+  if(t&&t.el){ overEl=t.el; overEl.classList.add(t.cls||'over'); }
+}
+function beginDrag(){
+  const id=drag.id;
+  if(!myTurn()){ if(!drag.fromRack||!G||G.over||viewSeat()===null) return false; drag.ids=[id]; drag.rackOnly=true; }
+  else { if(!canPick(id)){ render(); return false; } drag.ids=sel.has(id)?Array.from(sel):[id]; }
+  drag.started=true;
+  ghost=mk('div','ghost'); drag.ids.forEach(x=>ghost.appendChild(tileNode(x,''))); document.body.appendChild(ghost);
+  document.querySelectorAll('#table .tile[data-id], #rack .tile[data-id]').forEach(n=>{ if(drag.ids.indexOf(+n.dataset.id)>=0) n.classList.add('lifted'); });
+  document.body.classList.add('dragging');
+  return true;
+}
+function placeGhost(x,y){
+  if(!ghost) return;
+  const t=ghost.firstChild, w=t?t.offsetWidth:40, h=t?t.offsetHeight:54;
+  const dy=drag&&drag.touch?h*1.25:h*0.6;
+  ghost.style.transform='translate('+(x-w/2)+'px,'+(y-dy)+'px)';
+}
+function cancelDrag(){ if(ghost){ghost.remove();ghost=null;} setOver(null); document.body.classList.remove('dragging'); const had=drag&&drag.started; drag=null; if(had) render(); }
+
+document.addEventListener('pointerdown',e=>{
+  if(e.button>0||!G) return;
+  const t=e.target.closest('.tile[data-id]');
+  if(!t||!t.closest('#table,#rack')) return;
+  drag={id:+t.dataset.id,x0:e.clientX,y0:e.clientY,pid:e.pointerId,started:false,fromRack:!!t.closest('#rack'),touch:e.pointerType!=='mouse'};
+});
+document.addEventListener('pointermove',e=>{
+  if(!drag||e.pointerId!==drag.pid) return;
+  if(!drag.started){
+    if(Math.hypot(e.clientX-drag.x0,e.clientY-drag.y0)<7) return;
+    if(!beginDrag()){ drag=null; return; }
+  }
+  placeGhost(e.clientX,e.clientY);
+  setOver(targetAt(e.clientX,e.clientY));
+});
+document.addEventListener('pointerup',e=>{
+  if(!drag||e.pointerId!==drag.pid) return;
+  const d=drag;
+  if(!d.started){ drag=null; onTileTap(d.id,false); return; }
+  const t=targetAt(e.clientX,e.clientY);
+  if(ghost){ghost.remove();ghost=null;} setOver(null); document.body.classList.remove('dragging'); drag=null;
+  if(t) moveTiles(d.ids,t); else render();
+});
+document.addEventListener('pointercancel',()=>{ if(drag) cancelDrag(); });
+
+/* ---------- wiring ---------- */
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');
+  if(b){
+    if(!myTurn()||!sel.size) return;
+    const ids=Array.from(sel), act=b.dataset.act;
+    if(act==='add') moveTiles(ids,{type:'set',index:+b.dataset.set});
+    else if(act==='new') moveTiles(ids,{type:'new'});
+    else if(act==='back') moveTiles(ids,{type:'rack',before:null});
+    return;
+  }
+  const c=e.target.closest('[data-close]'); if(c){ c.closest('dialog').close(); return; }
+  if(e.target.closest('[data-open="rules"]')){ $('#dlgRules').showModal(); return; }
+  if(e.target.closest('[data-resume]')){ $('#dlgSetup').close(); if(L.mode==='online'&&tableDoc&&tableDoc.status==='lobby') renderLobby(); return; }
+  if(e.target.closest('#board')&&!e.target.closest('.tile,button')&&sel.size){ sel.clear(); L.prompt=null; render(); }
+});
+document.addEventListener('keydown',e=>{
+  if(document.querySelector('dialog[open]')) return;
+  const t=e.target.closest&&e.target.closest('.tile[data-id]');
+  if(t&&(e.key==='Enter'||e.key===' ')){ e.preventDefault(); onTileTap(+t.dataset.id,true); return; }
+  if(e.key==='Escape'&&sel.size){ sel.clear(); render(); }
+});
+$('#bSortG').addEventListener('click',()=>onSort('groups'));
+$('#bSortR').addEventListener('click',()=>onSort('runs'));
+$('#bHint').addEventListener('click',doHint);
+$('#bUndo').addEventListener('click',doUndo);
+$('#bDraw').addEventListener('click',()=>doDraw());
+$('#bDone').addEventListener('click',()=>doDone());
+$('#bSkip').addEventListener('click',skipAbsent);
+$('#bRules').addEventListener('click',()=>$('#dlgRules').showModal());
+$('#bScores').addEventListener('click',showScores);
+$('#bNew').addEventListener('click',()=>openSetup());
+$('#tabLocal').addEventListener('click',()=>setTab('local'));
+$('#tabOnline').addEventListener('click',()=>setTab('online'));
+$('#bDeal').addEventListener('click',startLocal);
+$('#bCreate').addEventListener('click',createTable);
+$('#myName').addEventListener('input',()=>{ prefs.name=$('#myName').value; savePrefs(); });
+$('#bLobStart').addEventListener('click',startOnline);
+$('#bLobLeave').addEventListener('click',()=>{ closeDlg('#dlgLobby'); leaveTable(); });
+$('#bNext').addEventListener('click',()=>{ $('#dlgResults').close(); nextGame(); });
+$('#bResNew').addEventListener('click',()=>{ $('#dlgResults').close(); openSetup(); });
+document.querySelectorAll('input[name="timerL"]').forEach(n=>n.addEventListener('change',()=>{ prefs.timerL=+n.value; savePrefs(); }));
+document.querySelectorAll('input[name="timerO"]').forEach(n=>n.addEventListener('change',()=>{ prefs.timerO=+n.value; savePrefs(); }));
+$('#dlgSetup').addEventListener('cancel',e=>{ if(!G&&!(L.mode==='online'&&tableDoc)) e.preventDefault(); });
+$('#dlgSetup').addEventListener('close',()=>unwatchTables());
+$('#dlgLobby').addEventListener('cancel',e=>e.preventDefault());
+
+(function hero(){
+  const h=$('#hero');
+  [[1,4],[1,5],[1,6],[1,7]].forEach(([c,n])=>h.appendChild(tileNode(c*13+n-1,'')));
+  h.appendChild(mk('span','gap'));
+  [0,2,3].forEach(c=>h.appendChild(tileNode(c*13+8,'')));
+  h.appendChild(tileNode(104,''));
+})();
+
+(function boot(){
+  prefs=loadPrefs();
+  const ui=store.get(KEY_UI)||{};
+  const loc=store.get(KEY_LOCAL);
+  render(); ensureTick();
+  if(ui.mode==='online'&&ui.gameId){
+    $('#prompt').textContent='Reconnecting to your online table…';
+    ensureCaps().then(()=>{
+      if(onlineOK()) openOnline(ui.gameId,false);
+      else if(loc&&loc.G&&!loc.G.over){ L.mode='local'; G=loc.G; L.revealed=loc.revealed; L.orders=loc.orders||{}; afterChange(); }
+      else openSetup();
+    });
+    return;
+  }
+  if(loc&&loc.G&&!loc.G.over){ L.mode='local'; G=loc.G; G.turnStartedAt=Date.now(); L.revealed=loc.revealed; L.orders=loc.orders||{}; afterChange(); return; }
+  openSetup();
+})();
+</script>
+</body>
+</html>
